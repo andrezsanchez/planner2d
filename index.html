@@ -1,0 +1,43 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+      @charset "UTF-8";
+
+      html {
+        height: 100%;
+      }
+      body {
+        margin: 0;
+        padding: 0;
+        height: 100%;
+      }
+      canvas {
+        display: inline-block;
+        vertical-align: top;
+        cursor: crosshair;
+        /*
+        width: 80%;
+        height: 100%;
+        */
+      }
+
+      .sidebar {
+        display: inline-block;
+        vertical-align: top;
+        width: 20%;
+      }
+      @media screen and (orientation: portrait) {
+        .sidebar {
+          display: block;
+          width: auto;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <script src="bundle.js"></script>
+  </body>
+</html>
