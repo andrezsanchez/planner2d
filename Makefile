@@ -1,7 +1,12 @@
+REACTIFY=-t [ reactify --es6 --target es5 ]
+BRFS=-t brfs
+
+TRANSFORMS=$(REACTIFY) $(BRFS)
+
 main:
-	browserify index.js -t [ reactify --es6 --target es5 ] -o bundle.js
+	browserify index.js $(TRANSFORMS) -o bundle.js
 watch:
-	watchify index.js -t [ reactify --es6 --target es5 ] -o bundle.js
+	watchify index.js $(TRANSFORMS) -o bundle.js
 serve:
 	http-server .
 .PHONY: main watch serve

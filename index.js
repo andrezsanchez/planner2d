@@ -2,35 +2,14 @@
 
 const React = require('react')
 const Canvas = require('./canvas')
-//var RulesInput = require('./inputs/rules')
-//var StartInput = require('./inputs/start')
 
-//var dotWorld = require('./dotWorld')
-//var randomWorld = require('./randomWorld')
-
-var floor = Math.floor
+const floor = Math.floor
 
 var Content = React.createClass({
   getInitialState: function() {
     return {
-      map: [0,0,0,0,0,0,0,0],
-      randomStart: false,
-      width: 300,
-      height: 400,
-      tiledWidth: null,
-      tileSize: 2,
     }
   },
-  //onRulesChange: function(val) {
-    //this.setState({
-      //map: mapFromBinary(val)
-    //})
-  //},
-  //onInitializationChange: function(val) {
-    //this.setState({
-      //randomStart: val
-    //})
-  //},
   onResize: function() {
     var width = floor(window.innerWidth * .8)
     var height = floor(window.innerHeight)
@@ -38,8 +17,6 @@ var Content = React.createClass({
     this.setState({
       width: width,
       height: 600,
-      //tiledWidth: floor(width / this.state.tileSize),
-      ////world: world,
     })
   },
   componentDidMount: function() {
@@ -47,10 +24,8 @@ var Content = React.createClass({
     this.onResize()
   },
   render: function() {
-    //var world = this.state.randomStart
-      //? randomWorld(this.state.width)
-      //: dotWorld(this.state.width)
-    //console.log(world)
+    if (!this.state.width || !this.state.height)
+      return (<div></div>)
 
     return (
       <div>
@@ -81,13 +56,4 @@ function randomArray(size, fn) {
 
 function randBool() {
   return Math.random() > .5
-}
-
-function mapFromBinary(str) {
-  var arr = []
-  for (var i=str.length-1;i>=0;i--) {
-    arr.push(str[i] === '1')
-  }
-  //console.log(arr)
-  return arr
 }

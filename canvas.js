@@ -5,7 +5,12 @@ const loop = require('./loop')
 
 const floor = Math.floor
 
-const Autonoma = React.createClass({
+var fs = require('fs')
+
+var vs_src = fs.readFileSync('./vs.glsl').toString('utf-8')
+var ps_src = fs.readFileSync('./fs.glsl').toString('utf-8')
+
+const Canvas = React.createClass({
   getInitialState: function() {
     return {
     }
@@ -17,52 +22,48 @@ const Autonoma = React.createClass({
     this.renderCanvas()
   },
   onMouseEvent: function(e) {
-    //console.log(e)
   },
   renderCanvas: function() {
-    var canvas = this.getDOMNode().getContext('2d')
+    var canvas = this.getDOMNode()
+    var gl = canvas.getContext('webgl')
+
+    window.gl = gl
+    console.log(canvas)
+
+    gl.viewport(0,0,canvas.clientWidth, canvas.clientHeight)
+
+    var ps = compileShader(gl, ps_src, gl.FRAGMENT_SHADER)
+    var vs = compileShader(gl, vs_src, gl.VERTEX_SHADER)
+    
+    var program = createProgram(gl, vs, ps)
+    gl.useProgram(program)
+    var positionLocation = gl.getAttribLocation(program, 'a_position')
+
+    var buffer = gl.createBuffer()
+    gl.bindBuffer(gl.ARRAY_BUFFER, buffer)
+    gl.bufferData(
+      gl.ARRAY_BUFFER,
+      new Float32Array([
+        -1.0, -1.0,
+        1.0, 1.0,
+        -1.0, 1.0,
+        -1.0, -1.0,
+        1.0, -1.0,
+        1.0, 1.0,
+      ]),
+
+      gl.STATIC_DRAW
+    )
+
+    gl.enableVertexAttribArray(positionLocation)
+    gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 0, 0)
+
+    gl.drawArrays(gl.TRIANGLES, 0, 6)
+
 
     var width = this.props.width
     var height = this.props.height
     
-    console.log(width, height)
-
-    var x = 0
-    var s = 45
-    var xs = 1
-    var size = this.props.size
-
-    function render(delta) {
-      //canvas.clearRect(0, 0, width, height)
-      //x += delta * xs * s
-      //if (x > (width-100)) xs = -1
-      //if (x < 0) xs = 1
-      //canvas.fillRect(floor(x), floor(x), 25, 25)
-      canvas.fillRect(floor(Math.random()*width), floor(Math.random()*height), 2, 2)
-      //if (Math.random() > .96) console.log(x)
-    }
-
-    function sinmap(offsetx, offsety) {
-      canvas.clearRect(0, 0, width, height)
-      var x,y
-      var cx, cy
-
-      for (y=0; y<height/size; y++) {
-        for (x=0; x < width/size; x++) {
-          cx = x + offsetx
-          cy = y + offsety
-          if (Math.sin(cx*cx+cy*cy) > .9) canvas.fillRect(x*size,y*size,size,size)
-        }
-      }
-    }
-
-    //sinmap(0, 0)
-
-    //loop(function(delta) {
-      //x += 1
-      //sinmap(x, 0)
-    //})
-    //loop(render)
   },
   render: function() {
     return (
@@ -76,8 +77,33 @@ const Autonoma = React.createClass({
   }
 })
 
-module.exports = Autonoma
+module.exports = Canvas
 
 function clamp(i, min, max) {
   return Math.max(Math.min(i, max), min)
+}
+
+function compileShader(gl, src, type) {
+  var shader = gl.createShader(type)
+  gl.shaderSource(shader, src)
+  gl.compileShader(shader)
+
+  if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+    throw new Error('Could not compile shader: %s', gl.getShaderInfoLog(shader))
+  }
+
+  return shader
+}
+
+function createProgram(gl, vert, frag) {
+  var program = gl.createProgram()
+  gl.attachShader(program, vert)
+  gl.attachShader(program, frag)
+  gl.linkProgram(program)
+
+  if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+    throw new Error('Could not link program: %s', gl.getProgramInfoLog(program))
+  }
+
+  return program
 }
