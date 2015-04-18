@@ -1,15 +1,7 @@
 precision highp float;
 
-varying vec2 uv;
-
-float scale = 25.0;
+varying vec4 v_color;
 
 void main() {
-
-  if (mod((uv.x+ 1.0)*scale+(uv.y+1.0)*scale, .5) > 0.25) {
-    gl_FragColor = vec4(0,0,0,1);
-  }
-  else {
-    gl_FragColor = vec4(1,1,1,1);
-  }
+  gl_FragColor = v_color;
 }

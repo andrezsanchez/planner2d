@@ -1,59 +1,72 @@
 'use strict';
 
-const React = require('react')
-const Canvas = require('./canvas')
+const createShader = require('gl-shader')
+const createBuffer = require('gl-buffer')
+const createVAO = require('gl-vao')
+const fs = require('fs')
 
-const floor = Math.floor
+let shell = require('gl-now')()
 
-var Content = React.createClass({
-  getInitialState: function() {
-    return {
-    }
-  },
-  onResize: function() {
-    var width = floor(window.innerWidth * .8)
-    var height = floor(window.innerHeight)
+let shader, vao, ob, resolution
 
-    this.setState({
-      width: width,
-      height: 600,
-    })
-  },
-  componentDidMount: function() {
-    window.addEventListener('resize', this.onResize, false)
-    this.onResize()
-  },
-  render: function() {
-    if (!this.state.width || !this.state.height)
-      return (<div></div>)
+const { sin, floor, random } = Math 
 
-    return (
-      <div>
-        <div className='sidebar'>
-          <label>Sine wave graph</label>
-          <input />
-        </div>
-        <Canvas
-          width={this.state.width}
-          height={this.state.height}
-          size={2}
-          />
-      </div>
-    )
-  }
+let vs_src = fs.readFileSync('./vs.glsl').toString('utf-8')
+let fs_src = fs.readFileSync('./fs.glsl').toString('utf-8')
+
+import VObject from './lib/vobject'
+import Square from './lib/square'
+
+shell.on('gl-init', () => {
+  let gl = shell.gl
+  shader = createShader(gl, vs_src, fs_src)
+
+  shader.attributes.position.location = 0
+  shader.attributes.color.location = 1
+
+  resolution = [shell.width, shell.height];
+  ob = new Square(gl, 1.0, 1.0, [1.0, 0, .3 ,1])
+  console.log(ob)
 })
 
-React.render(<Content />, document.body)
+shell.on('gl-render', t => {
+  let gl = shell.gl
 
-function randomArray(size, fn) {
-  var i
-  var arr = []
-  for (i=0;i<size;i++) {
-    arr.push(fn(i))
+  shader.bind()
+  shader.uniforms.u_resolution = resolution
+  shader.uniforms.tp = sin(0.001 * Date.now())
+  ob.draw()
+})
+
+class Vector {
+  constructor(x, y, z) {
+    this.data = [x, y, z]
   }
-  return arr
+  [0]() {
+    return this.x
+  }
 }
 
-function randBool() {
-  return Math.random() > .5
+class Line {
+  constructor(v1, v2) {
+    this.vectors = [v1, v2]
+  }
 }
+
+class Point {
+  constructor(vertex, color) {
+    this.vectors = [v1, v2, v3]
+    this.color = color
+  }
+}
+
+class Vertex {
+  constructor(coords, color) {
+  }
+}
+
+//class Line {
+  //constructor(vertex, color) {
+    //let vao = createVAO(gl, [vertex, color])
+  //}
+//}

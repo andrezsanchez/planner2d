@@ -9,10 +9,18 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "gl-buffer": "^2.1.1",
+    "gl-now": "^1.4.0",
+    "gl-shader": "^4.0.1",
+    "gl-vao": "^1.2.0",
     "react": "^0.13.1"
   },
   "devDependencies": {
     "brfs": "^1.4.0",
-    "reactify": "^1.1.0"
+    "browserify": "^9.0.8",
+    "es6ify": "^1.6.0",
+    "minimist": "^1.1.1",
+    "reactify": "^1.1.0",
+    "watchify": "^3.1.1"
   }
 }
