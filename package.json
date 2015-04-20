@@ -10,9 +10,11 @@
   "license": "ISC",
   "dependencies": {
     "gl-buffer": "^2.1.1",
+    "gl-matrix": "^2.1.0",
     "gl-now": "^1.4.0",
     "gl-shader": "^4.0.1",
     "gl-vao": "^1.2.0",
+    "point-in-triangle": "^1.0.1",
     "react": "^0.13.1"
   },
   "devDependencies": {

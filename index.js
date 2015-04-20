@@ -1,72 +1,62 @@
 'use strict';
 
 const createShader = require('gl-shader')
-const createBuffer = require('gl-buffer')
-const createVAO = require('gl-vao')
-const fs = require('fs')
-
+const { mat4, vec3, vec4 } = require('gl-matrix')
 let shell = require('gl-now')()
 
-let shader, vao, ob, resolution
-
-const { sin, floor, random } = Math 
-
+const fs = require('fs')
 let vs_src = fs.readFileSync('./vs.glsl').toString('utf-8')
 let fs_src = fs.readFileSync('./fs.glsl').toString('utf-8')
 
-import VObject from './lib/vobject'
 import Square from './lib/square'
+import TriangleEnvironment from './lib/environment'
+
+let shader, resolution, camera
+let perspective = mat4.create()
+let environment
+let scene = []
 
 shell.on('gl-init', () => {
-  let gl = shell.gl
-  shader = createShader(gl, vs_src, fs_src)
+  setResolution()
+  shader = createShader(shell.gl, vs_src, fs_src)
+
+  camera = mat4.lookAt(mat4.create(),
+                       vec3.fromValues(0, 0, 1),
+                       vec3.fromValues(0, 0, 0),
+                       vec3.fromValues(0, 1, 1)
+                      )
 
   shader.attributes.position.location = 0
   shader.attributes.color.location = 1
+  window.shader = shader
 
   resolution = [shell.width, shell.height];
-  ob = new Square(gl, 1.0, 1.0, [1.0, 0, .3 ,1])
-  console.log(ob)
+  environment = new TriangleEnvironment(shell.gl, 50)
+  scene.push(environment.mesh)
 })
 
 shell.on('gl-render', t => {
-  let gl = shell.gl
-
   shader.bind()
   shader.uniforms.u_resolution = resolution
-  shader.uniforms.tp = sin(0.001 * Date.now())
-  ob.draw()
+  shader.uniforms.u_camera = camera
+  shader.uniforms.u_perspective = perspective
+  //shader.uniforms.tp = Math.sin(0.002 * Date.now())
+  scene.forEach(ob => ob.draw())
+
+  let checkPoint = [shell.mouse[0] /shell.height, 1-shell.mouse[1]/shell.height]
+  if (environment.collide(checkPoint)) {
+    shell.canvas.style.cursor = 'pointer'
+  }
+  else {
+    shell.canvas.style.cursor = 'default'
+  }
 })
 
-class Vector {
-  constructor(x, y, z) {
-    this.data = [x, y, z]
-  }
-  [0]() {
-    return this.x
-  }
-}
+shell.on('gl-resize', setResolution)
 
-class Line {
-  constructor(v1, v2) {
-    this.vectors = [v1, v2]
-  }
+function setResolution() {
+  resolution = [shell.width, shell.height]
+  let ratio = shell.width/shell.height
+  let width = ratio * 1
+  mat4.ortho(perspective, 0, width,0,1,0,10)
 }
-
-class Point {
-  constructor(vertex, color) {
-    this.vectors = [v1, v2, v3]
-    this.color = color
-  }
-}
-
-class Vertex {
-  constructor(coords, color) {
-  }
-}
-
-//class Line {
-  //constructor(vertex, color) {
-    //let vao = createVAO(gl, [vertex, color])
-  //}
-//}
