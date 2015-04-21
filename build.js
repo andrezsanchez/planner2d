@@ -10,21 +10,21 @@ var fs = require('fs')
 
 var output = './bundle.js'
 var w
+var debug = false
 
 var i = 0
 if (argv.w) {
   var watchify = require('watchify')
-  var b = browserify({cache: {}, packageCache: {}, debug: true})
+  var b = browserify({cache: {}, packageCache: {}, debug: debug})
 
   applyTransforms(b)
   
   w = watchify(b)
   w.on('update', bundle)
   bundle()
-
 }
 else {
-  var b = browserify({debug: true})
+  var b = browserify({debug: debug})
   applyTransforms(b)
   b.bundle().pipe(process.stdout)
 }

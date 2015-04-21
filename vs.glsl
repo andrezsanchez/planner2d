@@ -1,7 +1,6 @@
 uniform vec2 u_resolution;
 uniform mat4 u_camera;
 uniform mat4 u_perspective;
-/*uniform float tp;*/
 
 attribute vec4 position;
 attribute vec4 color;

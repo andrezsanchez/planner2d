@@ -14,8 +14,10 @@
     "gl-now": "^1.4.0",
     "gl-shader": "^4.0.1",
     "gl-vao": "^1.2.0",
+    "mouse-event": "^1.0.4",
     "point-in-triangle": "^1.0.1",
-    "react": "^0.13.1"
+    "react": "^0.13.1",
+    "robust-segment-intersect": "^1.0.1"
   },
   "devDependencies": {
     "brfs": "^1.4.0",
