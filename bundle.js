@@ -10,7 +10,7 @@ var $__3 = require('gl-matrix'),
     mat4 = $__3.mat4,
     vec3 = $__3.vec3,
     vec4 = $__3.vec4;
-var shell = require('gl-now')();
+var shell = require('gl-now')({fullscreen: true});
 
 var vs_src = Buffer("dW5pZm9ybSB2ZWMyIHVfcmVzb2x1dGlvbjsKdW5pZm9ybSBtYXQ0IHVfY2FtZXJhOwp1bmlmb3JtIG1hdDQgdV9wZXJzcGVjdGl2ZTsKCmF0dHJpYnV0ZSB2ZWM0IHBvc2l0aW9uOwphdHRyaWJ1dGUgdmVjNCBjb2xvcjsKdmFyeWluZyB2ZWM0IHZfY29sb3I7CgpmbG9hdCByYXRpbyA9IHVfcmVzb2x1dGlvbi55IC8gdV9yZXNvbHV0aW9uLng7Cgp2b2lkIG1haW4oKSB7CiAgZ2xfUG9zaXRpb24gPSB1X3BlcnNwZWN0aXZlICogdV9jYW1lcmEgKiBwb3NpdGlvbjsKICB2X2NvbG9yID0gY29sb3I7Cn0K","base64").toString('utf-8');
 var fs_src = Buffer("cHJlY2lzaW9uIGhpZ2hwIGZsb2F0OwoKdmFyeWluZyB2ZWM0IHZfY29sb3I7Cgp2b2lkIG1haW4oKSB7CiAgZ2xfRnJhZ0NvbG9yID0gdl9jb2xvcjsKfQo=","base64").toString('utf-8');
@@ -36,13 +36,13 @@ shell.on('gl-init', (function() {
   shader.attributes.color.location = 1;
   environment = new TriangleEnvironment(shell.gl, 50);
   scene.push(environment.mesh);
-  planner = new Planner2D(gl, environment.collide.bind(environment));
+  planner = new Planner2D(gl, environment.collide.bind(environment), [0.08, 0.08], [.25, .25], .002);
   scene.push(planner);
   var lock = false;
   shell.canvas.addEventListener('mousemove', (function(e) {
     setCursor(mouseEvent.x(e), mouseEvent.y(e));
   }));
-  planner.run([0.08, 0.08], [.25, .25], .002);
+  planner.iterate();
   setCursor(0, 0);
 }));
 shell.on('gl-render', (function(t) {
@@ -199,46 +199,44 @@ Object.defineProperties(exports, {
     }},
   __esModule: {value: true}
 });
-var $__0 = Math,
-    sin = $__0.sin,
-    cos = $__0.cos,
-    min = $__0.min,
-    max = $__0.max,
-    atan2 = $__0.atan2,
-    sqrt = $__0.sqrt,
-    random = $__0.random,
-    PI = $__0.PI;
-function characterize(testFn, nodes) {
-  var feasible = true;
-  var collisions = 0;
-  var d = 0;
-  var s = null;
-  var distances = [];
+var $__1 = Math,
+    sin = $__1.sin,
+    cos = $__1.cos,
+    min = $__1.min,
+    max = $__1.max,
+    atan2 = $__1.atan2,
+    sqrt = $__1.sqrt,
+    random = $__1.random,
+    PI = $__1.PI;
+var Path = function Path(testFn, nodes) {
+  this.nodes = nodes;
+  this.feasible = true;
+  this.distance = 0;
+  this.collisions = 0;
+  this.maxRoughness = null;
+  this.distances = [];
   for (var i = 0; i < nodes.length - 1; i += 1) {
-    distances.push(dist(nodes[i], nodes[i + 1]));
+    this.distances.push(dist(nodes[i], nodes[i + 1]));
   }
-  for (var i$__1 = 0; i$__1 < nodes.length - 1; i$__1 += 1) {
-    var res = sample(testFn, nodes[i$__1], nodes[i$__1 + 1], .02);
-    collisions += res;
-    d += distances[i$__1];
-    if (feasible && res > 0)
-      feasible = false;
-    if (i$__1 > 0) {
-      var currentS = smoothness(distances[i$__1 - 1], distances[i$__1], nodes[i$__1 - 1], nodes[i$__1], nodes[i$__1 + 1]);
-      if (s) {
-        s = max(s, currentS);
+  for (var i$__2 = 0; i$__2 < nodes.length - 1; i$__2 += 1) {
+    var sampleResults = sample(testFn, nodes[i$__2], nodes[i$__2 + 1], DIST);
+    this.collisions += sampleResults;
+    this.distance += this.distances[i$__2];
+    if (this.feasible && sampleResults > 0)
+      this.feasible = false;
+    if (i$__2 > 0) {
+      var currentS = smoothness(this.distances[i$__2 - 1], this.distances[i$__2], nodes[i$__2 - 1], nodes[i$__2], nodes[i$__2 + 1]);
+      if (this.maxRoughness) {
+        this.maxRoughness = max(this.maxRoughness, currentS);
       } else {
-        s = currentS;
+        this.maxRoughness = currentS;
       }
     }
   }
-  return {
-    maxRoughness: s,
-    collisions: collisions,
-    distance: d
-  };
-}
-var $__default = characterize;
+};
+($traceurRuntime.createClass)(Path, {}, {});
+var $__default = Path;
+var DIST = .02;
 function smoothness(d1, d2, p1, p2, p3) {
   var d = min(d1, d2);
   var a1 = atan2(p2[1] - p1[1], p2[0] - p1[0]);
@@ -268,7 +266,7 @@ function sample(collide, start, end, dist) {
       count += 1;
     total += 1;
   }
-  return count / total;
+  return count;
 }
 
 
@@ -284,55 +282,70 @@ Object.defineProperties(exports, {
 var $__path__,
     $__lines__,
     $__robust_45_segment_45_intersect__;
-var characterize = ($__path__ = require("./path"), $__path__ && $__path__.__esModule && $__path__ || {default: $__path__}).default;
+var Path = ($__path__ = require("./path"), $__path__ && $__path__.__esModule && $__path__ || {default: $__path__}).default;
 var Lines = ($__lines__ = require("./lines"), $__lines__ && $__lines__.__esModule && $__lines__ || {default: $__lines__}).default;
 var segmentsIntersect = ($__robust_45_segment_45_intersect__ = require("robust-segment-intersect"), $__robust_45_segment_45_intersect__ && $__robust_45_segment_45_intersect__.__esModule && $__robust_45_segment_45_intersect__ || {default: $__robust_45_segment_45_intersect__}).default;
-var $__4 = Math,
-    sin = $__4.sin,
-    cos = $__4.cos,
-    random = $__4.random,
-    PI = $__4.PI;
-var Planner2D = function Planner2D(gl, testFn) {
+var $__5 = Math,
+    sin = $__5.sin,
+    cos = $__5.cos,
+    random = $__5.random,
+    floor = $__5.floor,
+    PI = $__5.PI;
+var Planner2D = function Planner2D(gl, testFn, start, goal, sampleStep) {
   this.testFn = testFn;
   this.gl = gl;
-  this.vobject = null;
+  this.vobjects = [];
+  this.paths = [];
+  this.sampleStep = sampleStep;
+  if (testFn(start))
+    throw Error('Start location collision');
+  if (testFn(goal))
+    throw Error('Goal location collision');
+  for (var i = 0; i < 10; i++) {
+    var p = randomPath(4 + floor(random() * 6), start, goal);
+    this.paths.push(new Path(testFn, p));
+  }
 };
 ($traceurRuntime.createClass)(Planner2D, {
-  run: function(start, goal) {
+  iterate: function(steps) {
+    var $__3 = this;
     var collide = this.testFn;
-    if (collide(start[0], start[1]))
-      throw Error('Start location collision');
-    if (collide(goal[0], goal[1]))
-      throw Error('Goal location collision');
-    var initialChromosome = randomPath(10, start, goal);
-    this.vobject = linesFromChromosome(this.gl, initialChromosome);
-    console.log(characterize(collide, initialChromosome));
+    var scoredPaths = this.paths.map((function(path) {
+      return {
+        path: path,
+        fitness: fitness(path)
+      };
+    })).sort((function(a, b) {
+      return a.fitness - b.fitness;
+    }));
+    scoredPaths.forEach((function(s, i, arr) {
+      var score = 1 - i / arr.length;
+      $__3.vobjects.push(linesFromPath($__3.gl, s.path.nodes, [1 - score, score, 0.2, 1]));
+    }));
+    console.log(scoredPaths);
   },
   draw: function() {
-    if (this.vobject)
-      this.vobject.draw();
+    this.vobjects.forEach((function(o) {
+      return o.draw();
+    }));
   }
 }, {});
 var $__default = Planner2D;
-function generateValidRandomPath(count, start, goal) {
-  for (var attempts = 0; attempts < 500; attempts++) {
-    var p = randomPath(count, start, goal);
-    if (pathValid(p)) {
-      return p;
-    }
-  }
-  throw new Error('Could not generate random path');
-  return null;
+var DIST = .02;
+function mutate(p) {
+  var i = floor(random() * p.length);
+  p[i][0] = random();
+  p[i][1] = random();
 }
-function pathValid(p) {
-  for (var i = 0; i < p.length - 1; i++) {
-    for (var j = i + 2; j < p.length - 1; j++) {
-      if (segmentsIntersect(p[i], p[i + 1], p[j], p[j + 1])) {
-        return false;
-      }
-    }
+function fitness(c) {
+  var score = 0;
+  if (c.collisions > 0) {
+    score += 50000;
+    score += c.collisions * DIST;
+  } else {
+    score += c.maxRoughness * .25 + c.distance * 8;
   }
-  return true;
+  return score;
 }
 function randomPath(count, start, goal) {
   var knots = [start];
@@ -342,12 +355,15 @@ function randomPath(count, start, goal) {
   knots.push(goal);
   return knots;
 }
-function linesFromChromosome(gl, chr) {
+function linesFromPath(gl, chr, color) {
   var arr = [];
   chr.forEach((function(c) {
     return arr.push(c[0], c[1], 0, 1);
   }));
-  return new Lines(gl, arr, [0, .7, .2, 1]);
+  return new Lines(gl, arr, color);
+}
+function randomColor() {
+  return [.1 + random() * .6, .1 + random() * .6, .1 + random() * .6, 1];
 }
 
 

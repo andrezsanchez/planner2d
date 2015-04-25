@@ -1,7 +1,7 @@
 const createShader = require('gl-shader')
 const mouseEvent = require('mouse-event')
 const { mat4, vec3, vec4 } = require('gl-matrix')
-let shell = require('gl-now')()
+let shell = require('gl-now')({fullscreen: true})
 
 const fs = require('fs')
 let vs_src = fs.readFileSync('./vs.glsl').toString('utf-8')
@@ -35,7 +35,8 @@ shell.on('gl-init', () => {
   environment = new TriangleEnvironment(shell.gl, 50)
   scene.push(environment.mesh)
 
-  planner = new Planner2D(gl, environment.collide.bind(environment))
+  planner = new Planner2D(gl, environment.collide.bind(environment),
+                          [0.08, 0.08], [.25, .25], .002)
   scene.push(planner)
 
   let lock = false
@@ -43,7 +44,7 @@ shell.on('gl-init', () => {
     setCursor(mouseEvent.x(e), mouseEvent.y(e))
   })
 
-  planner.run([0.08,0.08], [.25, .25], .002)
+  planner.iterate()
   setCursor(0,0)
 })
 
@@ -56,7 +57,6 @@ shell.on('gl-render', t => {
   scene.forEach(ob => ob.draw())
 })
 
-// 
 shell.on('gl-resize', setResolution)
 
 /**
