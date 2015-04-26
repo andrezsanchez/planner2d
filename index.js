@@ -1,7 +1,7 @@
 const createShader = require('gl-shader')
 const mouseEvent = require('mouse-event')
 const { mat4, vec3, vec4 } = require('gl-matrix')
-let shell = require('gl-now')({fullscreen: true})
+let shell = require('gl-now')()
 
 const fs = require('fs')
 let vs_src = fs.readFileSync('./vs.glsl').toString('utf-8')

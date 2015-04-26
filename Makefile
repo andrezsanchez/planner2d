@@ -7,10 +7,8 @@ source=index.js
 dest=bundle.js
 
 main:
-	#-browserify $(source) $(transforms) -o $(dest)
 	node ./build.js > $(dest)
 watch:
-	#-watchify $(source) $(transforms) -o $(dest)
 	node ./build.js -w
 serve:
 	http-server .
