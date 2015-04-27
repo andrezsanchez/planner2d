@@ -39,14 +39,23 @@ shell.on('gl-init', () => {
                           [0.08, 0.08], [.25, .25], .002)
   scene.push(planner)
 
-  let lock = false
-  shell.canvas.addEventListener('mousemove', e => {
-    setCursor(mouseEvent.x(e), mouseEvent.y(e))
+  //shell.canvas.addEventListener('mousemove', e => {
+    //setCursor(mouseEvent.x(e), mouseEvent.y(e))
+  //})
+
+  shell.canvas.addEventListener('click', e => {
+    planner.iterate()
   })
 
-  planner.iterate()
+  //planner.iterate()
   setCursor(0,0)
 })
+
+function linesFromPath(gl, nodes, color) {
+  let arr = []
+  nodes.forEach(n => arr.push(n[0], n[1], 0, 1))
+  return new Lines(gl, arr, color)
+}
 
 shell.on('gl-render', t => {
   shader.bind()

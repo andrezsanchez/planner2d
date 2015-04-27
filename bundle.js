@@ -38,13 +38,18 @@ shell.on('gl-init', (function() {
   scene.push(environment.mesh);
   planner = new Planner2D(gl, environment.collide.bind(environment), [0.08, 0.08], [.25, .25], .002);
   scene.push(planner);
-  var lock = false;
-  shell.canvas.addEventListener('mousemove', (function(e) {
-    setCursor(mouseEvent.x(e), mouseEvent.y(e));
+  shell.canvas.addEventListener('click', (function(e) {
+    planner.iterate();
   }));
-  planner.iterate();
   setCursor(0, 0);
 }));
+function linesFromPath(gl, nodes, color) {
+  var arr = [];
+  nodes.forEach((function(n) {
+    return arr.push(n[0], n[1], 0, 1);
+  }));
+  return new Lines(gl, arr, color);
+}
 shell.on('gl-render', (function(t) {
   shader.bind();
   shader.uniforms.u_resolution = resolution;
@@ -76,7 +81,7 @@ function setCursor(x, y) {
 
 //# sourceURL=/home/andre/code/js/epn/index.js
 }).call(this,require("buffer").Buffer)
-},{"./lib/environment":2,"./lib/lines":3,"./lib/planner":7,"buffer":10,"gl-matrix":34,"gl-now":35,"gl-shader":48,"mouse-event":63}],2:[function(require,module,exports){
+},{"./lib/environment":2,"./lib/lines":3,"./lib/planner":8,"buffer":11,"gl-matrix":35,"gl-now":36,"gl-shader":49,"mouse-event":64}],2:[function(require,module,exports){
 "use strict";
 Object.defineProperties(exports, {
   default: {get: function() {
@@ -131,7 +136,7 @@ var $__default = TriangleEnvironment;
 
 
 //# sourceURL=/home/andre/code/js/epn/lib/environment.js
-},{"./mesh":4,"point-in-triangle":64}],3:[function(require,module,exports){
+},{"./mesh":4,"point-in-triangle":65}],3:[function(require,module,exports){
 "use strict";
 Object.defineProperties(exports, {
   default: {get: function() {
@@ -154,14 +159,19 @@ var Lines = function Lines(gl, vertices, color) {
   $traceurRuntime.superConstructor($Lines).call(this, vao, gl.LINE_STRIP, vertices.length / 4);
 };
 var $Lines = Lines;
-($traceurRuntime.createClass)(Lines, {draw: function() {
+($traceurRuntime.createClass)(Lines, {
+  draw: function() {
     $traceurRuntime.superGet(this, $Lines.prototype, "draw").call(this);
-  }}, {}, VObject);
+  },
+  destroy: function() {
+    $traceurRuntime.superGet(this, $Lines.prototype, "destroy").call(this);
+  }
+}, {}, VObject);
 var $__default = Lines;
 
 
 //# sourceURL=/home/andre/code/js/epn/lib/lines.js
-},{"./vobject":9,"gl-buffer":21,"gl-vao":62}],4:[function(require,module,exports){
+},{"./vobject":10,"gl-buffer":22,"gl-vao":63}],4:[function(require,module,exports){
 "use strict";
 Object.defineProperties(exports, {
   default: {get: function() {
@@ -191,7 +201,39 @@ var $__default = Mesh;
 
 
 //# sourceURL=/home/andre/code/js/epn/lib/mesh.js
-},{"./vobject":9,"gl-buffer":21,"gl-vao":62}],5:[function(require,module,exports){
+},{"./vobject":10,"gl-buffer":22,"gl-vao":63}],5:[function(require,module,exports){
+"use strict";
+Object.defineProperties(exports, {
+  mutate: {get: function() {
+      return mutate;
+    }},
+  __esModule: {value: true}
+});
+function mutate(path, pathSet) {
+  var operators = [moveBig];
+}
+function moveBig(path, pathSet) {
+  var nodes = path.nodes.map((function(n) {
+    return n.slice();
+  }));
+  var i = floor(random() * (nodes.length - 2));
+  nodes[i + 1][0] = random();
+  nodes[i + 1][1] = random();
+  return new Path(path.testFn, nodes);
+}
+function moveSmall(path, pathSet) {
+  var nodes = path.nodes.map((function(n) {
+    return n.slice();
+  }));
+  var i = floor(random() * (nodes.length - 2));
+  nodes[i + 1][0] = random();
+  nodes[i + 1][1] = random();
+  return new Path(path.testFn, nodes);
+}
+
+
+//# sourceURL=/home/andre/code/js/epn/lib/mutate.js
+},{}],6:[function(require,module,exports){
 "use strict";
 Object.defineProperties(exports, {
   PathSet: {get: function() {
@@ -202,38 +244,48 @@ Object.defineProperties(exports, {
     }},
   __esModule: {value: true}
 });
-var $__lines__;
+var $__lines__,
+    $__mutate__;
 var Lines = ($__lines__ = require("./lines"), $__lines__ && $__lines__.__esModule && $__lines__ || {default: $__lines__}).default;
-var PathSet = function PathSet(paths, fitnessFn, pathMutationFn) {
+var mutate = ($__mutate__ = require("./mutate"), $__mutate__ && $__mutate__.__esModule && $__mutate__ || {default: $__mutate__}).default;
+var PathSet = function PathSet(paths, fitnessFn) {
   this.paths = paths.slice().sort((function(a, b) {
     return fitnessFn(a) - fitnessFn(b);
   }));
+  this.fitnessFn = fitnessFn;
 };
 var $PathSet = PathSet;
 ($traceurRuntime.createClass)(PathSet, {
   mutation: function() {
     var newPaths = this.paths.slice(0, -1);
-    newPaths.push(pathMutationFn(newPaths[0]));
-    return new $PathSet(newPaths, pathMutationFn, fitnessFn);
+    newPaths.push(this.pathMutationFn(newPaths[0]));
+    return new $PathSet(newPaths, this.fitnessFn, this.pathMutationFn);
   },
-  vobjects: function(gl, colorFn) {
-    this.paths.map((function(p, i, arr) {
-      return new Lines(gl, p.nodes, colorFn(p, i, arr));
+  generateVObjects: function(gl, colorFn) {
+    return this.paths.map((function(p, i, arr) {
+      return linesFromPath(gl, p.nodes, colorFn(p, i, arr));
     }));
   }
 }, {});
+function linesFromPath(gl, nodes, color) {
+  var arr = [];
+  nodes.forEach((function(n) {
+    return arr.push(n[0], n[1], 0, 1);
+  }));
+  return new Lines(gl, arr, color);
+}
 function colorByRank(p, i, arr) {
   var score = 1 - i / arr.length;
   var color = [1 - score, score, 0.2, .8];
   if (i === 0)
-    color = [0, 0, .7, 1];
+    color = [0, 0, .7, .9];
   return color;
 }
 ;
 
 
 //# sourceURL=/home/andre/code/js/epn/lib/path-set.js
-},{"./lines":3}],6:[function(require,module,exports){
+},{"./lines":3,"./mutate":5}],7:[function(require,module,exports){
 "use strict";
 Object.defineProperties(exports, {
   default: {get: function() {
@@ -253,6 +305,7 @@ var $__2 = Math,
     PI = $__2.PI;
 var Segment = ($__segment__ = require("./segment"), $__segment__ && $__segment__.__esModule && $__segment__ || {default: $__segment__}).default;
 var Path = function Path(testFn, nodes) {
+  this.testFn = testFn;
   this.nodes = nodes;
   this.feasible = true;
   this.distance = 0;
@@ -308,7 +361,7 @@ function sample(collide, start, end, dist) {
 
 
 //# sourceURL=/home/andre/code/js/epn/lib/path.js
-},{"./segment":8}],7:[function(require,module,exports){
+},{"./segment":9}],8:[function(require,module,exports){
 "use strict";
 Object.defineProperties(exports, {
   default: {get: function() {
@@ -323,7 +376,6 @@ var $__path_45_set__,
 var $__0 = ($__path_45_set__ = require("./path-set"), $__path_45_set__ && $__path_45_set__.__esModule && $__path_45_set__ || {default: $__path_45_set__}),
     PathSet = $__0.PathSet,
     colorByRank = $__0.colorByRank;
-console.log(colorByRank);
 var Path = ($__path__ = require("./path"), $__path__ && $__path__.__esModule && $__path__ || {default: $__path__}).default;
 var Lines = ($__lines__ = require("./lines"), $__lines__ && $__lines__.__esModule && $__lines__ || {default: $__lines__}).default;
 var segmentsIntersect = ($__robust_45_segment_45_intersect__ = require("robust-segment-intersect"), $__robust_45_segment_45_intersect__ && $__robust_45_segment_45_intersect__.__esModule && $__robust_45_segment_45_intersect__ || {default: $__robust_45_segment_45_intersect__}).default;
@@ -348,27 +400,43 @@ var Planner2D = function Planner2D(gl, testFn, start, goal, sampleStep) {
     var p = randomPath(4 + floor(random() * 6), start, goal);
     paths.push(new Path(testFn, p));
   }
-  console.log(PathSet);
   this.pathSet = new PathSet(paths, fitness, mutate);
+  this.refreshVObjects();
 };
 ($traceurRuntime.createClass)(Planner2D, {
-  iterate: function(steps) {
-    var vobjects = this.pathSet.vobjects(this.gl, colorByRank);
-    this.vobjects.concat(vobjects);
-    console.log(this.pathSet.paths);
+  refreshVObjects: function() {
+    this.vobjects.forEach((function(o) {
+      return o.destroy();
+    }));
+    this.vobjects = this.pathSet.generateVObjects(this.gl, colorByRank);
+  },
+  iterate: function() {
+    this.pathSet = this.pathSet.mutation();
+    this.refreshVObjects();
   },
   draw: function() {
-    this.vobjects.reverse().forEach((function(o) {
-      return o.draw();
-    }));
+    for (var i = this.vobjects.length - 1; i >= 0; i--) {
+      this.vobjects[i].draw();
+    }
   }
 }, {});
 var $__default = Planner2D;
 var DIST = .02;
+function linesFromPath(gl, nodes, color) {
+  var arr = [];
+  nodes.forEach((function(n) {
+    return arr.push(n[0], n[1], 0, 1);
+  }));
+  return new Lines(gl, arr, color);
+}
 function mutate(path) {
-  var i = floor(random() * path.nodes.length);
-  path.nodes[i][0] = random();
-  path.nodes[i][1] = random();
+  var nodes = path.nodes.map((function(n) {
+    return n.slice();
+  }));
+  var i = floor(random() * (nodes.length - 2));
+  nodes[i + 1][0] = random();
+  nodes[i + 1][1] = random();
+  return new Path(path.testFn, nodes);
 }
 function fitness(p) {
   var score = 0;
@@ -388,20 +456,13 @@ function randomPath(count, start, goal) {
   knots.push(goal);
   return knots;
 }
-function linesFromPath(gl, chr, color) {
-  var arr = [];
-  chr.forEach((function(c) {
-    return arr.push(c[0], c[1], 0, 1);
-  }));
-  return new Lines(gl, arr, color);
-}
 function randomColor() {
   return [.1 + random() * .6, .1 + random() * .6, .1 + random() * .6, 1];
 }
 
 
 //# sourceURL=/home/andre/code/js/epn/lib/planner.js
-},{"./lines":3,"./path":6,"./path-set":5,"robust-segment-intersect":71}],8:[function(require,module,exports){
+},{"./lines":3,"./path":7,"./path-set":6,"robust-segment-intersect":72}],9:[function(require,module,exports){
 "use strict";
 var $__4 = $traceurRuntime.initGeneratorFunction(sample);
 Object.defineProperties(exports, {
@@ -492,7 +553,7 @@ function sample(dist, start, end) {
 
 
 //# sourceURL=/home/andre/code/js/epn/lib/segment.js
-},{}],9:[function(require,module,exports){
+},{}],10:[function(require,module,exports){
 "use strict";
 Object.defineProperties(exports, {
   default: {get: function() {
@@ -505,16 +566,22 @@ var VObject = function VObject(vao, drawType, drawCount) {
   this.drawType = drawType;
   this.drawCount = drawCount;
 };
-($traceurRuntime.createClass)(VObject, {draw: function() {
+($traceurRuntime.createClass)(VObject, {
+  draw: function() {
     this.vao.bind();
     this.vao.draw(this.drawType, this.drawCount);
     this.vao.unbind();
-  }}, {});
+  },
+  destroy: function() {
+    this.vao.dispose();
+    delete this.vao;
+  }
+}, {});
 var $__default = VObject;
 
 
 //# sourceURL=/home/andre/code/js/epn/lib/vobject.js
-},{}],10:[function(require,module,exports){
+},{}],11:[function(require,module,exports){
 /*!
  * The buffer module from node.js, for the browser.
  *
@@ -1847,7 +1914,7 @@ function decodeUtf8Char (str) {
   }
 }
 
-},{"base64-js":11,"ieee754":12,"is-array":13}],11:[function(require,module,exports){
+},{"base64-js":12,"ieee754":13,"is-array":14}],12:[function(require,module,exports){
 var lookup = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
 
 ;(function (exports) {
@@ -1973,7 +2040,7 @@ var lookup = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
 	exports.fromByteArray = uint8ToBase64
 }(typeof exports === 'undefined' ? (this.base64js = {}) : exports))
 
-},{}],12:[function(require,module,exports){
+},{}],13:[function(require,module,exports){
 exports.read = function(buffer, offset, isLE, mLen, nBytes) {
   var e, m,
       eLen = nBytes * 8 - mLen - 1,
@@ -2059,7 +2126,7 @@ exports.write = function(buffer, value, offset, isLE, mLen, nBytes) {
   buffer[offset + i - d] |= s * 128;
 };
 
-},{}],13:[function(require,module,exports){
+},{}],14:[function(require,module,exports){
 
 /**
  * isArray
@@ -2094,7 +2161,7 @@ module.exports = isArray || function (val) {
   return !! val && '[object Array]' == str.call(val);
 };
 
-},{}],14:[function(require,module,exports){
+},{}],15:[function(require,module,exports){
 // Copyright Joyent, Inc. and other Node contributors.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a
@@ -2397,7 +2464,7 @@ function isUndefined(arg) {
   return arg === void 0;
 }
 
-},{}],15:[function(require,module,exports){
+},{}],16:[function(require,module,exports){
 if (typeof Object.create === 'function') {
   // implementation from standard node.js 'util' module
   module.exports = function inherits(ctor, superCtor) {
@@ -2422,7 +2489,7 @@ if (typeof Object.create === 'function') {
   }
 }
 
-},{}],16:[function(require,module,exports){
+},{}],17:[function(require,module,exports){
 (function (process){
 // Copyright Joyent, Inc. and other Node contributors.
 //
@@ -2650,7 +2717,7 @@ var substr = 'ab'.substr(-1) === 'b'
 ;
 
 }).call(this,require('_process'))
-},{"_process":17}],17:[function(require,module,exports){
+},{"_process":18}],18:[function(require,module,exports){
 // shim for using process in browser
 
 var process = module.exports = {};
@@ -2710,14 +2777,14 @@ process.chdir = function (dir) {
 };
 process.umask = function() { return 0; };
 
-},{}],18:[function(require,module,exports){
+},{}],19:[function(require,module,exports){
 module.exports = function isBuffer(arg) {
   return arg && typeof arg === 'object'
     && typeof arg.copy === 'function'
     && typeof arg.fill === 'function'
     && typeof arg.readUInt8 === 'function';
 }
-},{}],19:[function(require,module,exports){
+},{}],20:[function(require,module,exports){
 (function (process,global){
 // Copyright Joyent, Inc. and other Node contributors.
 //
@@ -3307,7 +3374,7 @@ function hasOwnProperty(obj, prop) {
 }
 
 }).call(this,require('_process'),typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"./support/isBuffer":18,"_process":17,"inherits":15}],20:[function(require,module,exports){
+},{"./support/isBuffer":19,"_process":18,"inherits":16}],21:[function(require,module,exports){
 (function (process,global){
 (function(global) {
   'use strict';
@@ -5876,7 +5943,7 @@ System.registerModule("traceur-runtime@0.0.79/src/runtime/polyfills/polyfills.js
 System.get("traceur-runtime@0.0.79/src/runtime/polyfills/polyfills.js" + '');
 
 }).call(this,require('_process'),typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"_process":17,"path":16}],21:[function(require,module,exports){
+},{"_process":18,"path":17}],22:[function(require,module,exports){
 "use strict";
 "use strict";
 var pool = require("typedarray-pool");
@@ -6015,7 +6082,7 @@ module.exports = createBuffer;
 
 
 //# sourceURL=/home/andre/code/js/epn/node_modules/gl-buffer/buffer.js
-},{"ndarray":27,"ndarray-ops":22,"typedarray-pool":31,"webglew":33}],22:[function(require,module,exports){
+},{"ndarray":28,"ndarray-ops":23,"typedarray-pool":32,"webglew":34}],23:[function(require,module,exports){
 "use strict"
 
 var compile = require("cwise-compiler")
@@ -6478,7 +6545,7 @@ exports.equals = compile({
 
 
 
-},{"cwise-compiler":23}],23:[function(require,module,exports){
+},{"cwise-compiler":24}],24:[function(require,module,exports){
 "use strict"
 
 var createThunk = require("./lib/thunk.js")
@@ -6589,7 +6656,7 @@ function compileCwise(user_args) {
 
 module.exports = compileCwise
 
-},{"./lib/thunk.js":25}],24:[function(require,module,exports){
+},{"./lib/thunk.js":26}],25:[function(require,module,exports){
 "use strict"
 
 var uniq = require("uniq")
@@ -6945,7 +7012,7 @@ function generateCWiseOp(proc, typesig) {
 }
 module.exports = generateCWiseOp
 
-},{"uniq":26}],25:[function(require,module,exports){
+},{"uniq":27}],26:[function(require,module,exports){
 "use strict"
 
 // The function below is called when constructing a cwise function object, and does the following:
@@ -7018,7 +7085,7 @@ function createThunk(proc) {
 
 module.exports = createThunk
 
-},{"./compile.js":24}],26:[function(require,module,exports){
+},{"./compile.js":25}],27:[function(require,module,exports){
 "use strict"
 
 function unique_pred(list, compare) {
@@ -7077,7 +7144,7 @@ function unique(list, compare, sorted) {
 
 module.exports = unique
 
-},{}],27:[function(require,module,exports){
+},{}],28:[function(require,module,exports){
 (function (Buffer){
 var iota = require("iota-array")
 
@@ -7425,7 +7492,7 @@ function wrappedNDArrayCtor(data, shape, stride, offset) {
 
 module.exports = wrappedNDArrayCtor
 }).call(this,require("buffer").Buffer)
-},{"buffer":10,"iota-array":28}],28:[function(require,module,exports){
+},{"buffer":11,"iota-array":29}],29:[function(require,module,exports){
 "use strict"
 
 function iota(n) {
@@ -7437,7 +7504,7 @@ function iota(n) {
 }
 
 module.exports = iota
-},{}],29:[function(require,module,exports){
+},{}],30:[function(require,module,exports){
 /**
  * Bit twiddling hacks for JavaScript.
  *
@@ -7643,7 +7710,7 @@ exports.nextCombination = function(v) {
 }
 
 
-},{}],30:[function(require,module,exports){
+},{}],31:[function(require,module,exports){
 "use strict"
 
 function dupe_array(count, value, i) {
@@ -7693,7 +7760,7 @@ function dupe(count, value) {
 }
 
 module.exports = dupe
-},{}],31:[function(require,module,exports){
+},{}],32:[function(require,module,exports){
 (function (global,Buffer){
 'use strict'
 
@@ -7910,7 +7977,7 @@ exports.clearCache = function clearCache() {
   }
 }
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {},require("buffer").Buffer)
-},{"bit-twiddle":29,"buffer":10,"dup":30}],32:[function(require,module,exports){
+},{"bit-twiddle":30,"buffer":11,"dup":31}],33:[function(require,module,exports){
 // Copyright (C) 2011 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -8597,7 +8664,7 @@ exports.clearCache = function clearCache() {
   }
 })();
 
-},{}],33:[function(require,module,exports){
+},{}],34:[function(require,module,exports){
 'use strict'
 
 var weakMap = typeof WeakMap === 'undefined' ? require('weak-map') : WeakMap
@@ -8639,7 +8706,7 @@ function initWebGLEW(gl) {
   return extensions
 }
 module.exports = initWebGLEW
-},{"weak-map":32}],34:[function(require,module,exports){
+},{"weak-map":33}],35:[function(require,module,exports){
 "use strict";
 (function() {
   "use strict";
@@ -10781,7 +10848,7 @@ module.exports = initWebGLEW
 
 
 //# sourceURL=/home/andre/code/js/epn/node_modules/gl-matrix/dist/gl-matrix.js
-},{}],35:[function(require,module,exports){
+},{}],36:[function(require,module,exports){
 "use strict";
 "use strict";
 var makeGameShell = require("game-shell");
@@ -10878,7 +10945,7 @@ module.exports = createGLShell;
 
 
 //# sourceURL=/home/andre/code/js/epn/node_modules/gl-now/index.js
-},{"game-shell":45,"webglew":47}],36:[function(require,module,exports){
+},{"game-shell":46,"webglew":48}],37:[function(require,module,exports){
 if(typeof window.performance === "object") {
   if(window.performance.now) {
     module.exports = function() { return window.performance.now() }
@@ -10891,7 +10958,7 @@ if(typeof window.performance === "object") {
   module.exports = function() { return (new Date()).getTime() }
 }
 
-},{}],37:[function(require,module,exports){
+},{}],38:[function(require,module,exports){
 //Adapted from here: https://developer.mozilla.org/en-US/docs/Web/Reference/Events/wheel?redirectlocale=en-US&redirectslug=DOM%2FMozilla_event_reference%2Fwheel
 
 var prefix = "", _addEventListener, onwheel, support;
@@ -10951,7 +11018,7 @@ module.exports = function( elem, callback, useCapture ) {
     _addWheelListener( elem, "MozMousePixelScroll", callback, useCapture );
   }
 };
-},{}],38:[function(require,module,exports){
+},{}],39:[function(require,module,exports){
 // http://paulirish.com/2011/requestanimationframe-for-smart-animating/
 // http://my.opera.com/emoller/blog/2011/12/20/requestanimationframe-for-smart-er-animating
  
@@ -10981,7 +11048,7 @@ if (!window.cancelAnimationFrame)
         clearTimeout(id);
     };
 
-},{}],39:[function(require,module,exports){
+},{}],40:[function(require,module,exports){
 "use strict"
 
 function compileSearch(funcName, predicate, reversed, extraArgs, useNdarray, earlyOut) {
@@ -11043,7 +11110,7 @@ module.exports = {
   eq: compileBoundsSearch("-", true, "EQ", true)
 }
 
-},{}],40:[function(require,module,exports){
+},{}],41:[function(require,module,exports){
 /*!
   * domready (c) Dustin Diaz 2014 - License MIT
   */
@@ -11075,7 +11142,7 @@ module.exports = {
 
 });
 
-},{}],41:[function(require,module,exports){
+},{}],42:[function(require,module,exports){
 "use strict"
 
 function invert(hash) {
@@ -11089,11 +11156,11 @@ function invert(hash) {
 }
 
 module.exports = invert
-},{}],42:[function(require,module,exports){
-arguments[4][28][0].apply(exports,arguments)
-},{"dup":28}],43:[function(require,module,exports){
-arguments[4][26][0].apply(exports,arguments)
-},{"dup":26}],44:[function(require,module,exports){
+},{}],43:[function(require,module,exports){
+arguments[4][29][0].apply(exports,arguments)
+},{"dup":29}],44:[function(require,module,exports){
+arguments[4][27][0].apply(exports,arguments)
+},{"dup":27}],45:[function(require,module,exports){
 var ua = typeof window !== 'undefined' ? window.navigator.userAgent : ''
   , isOSX = /OS X/.test(ua)
   , isOpera = /Opera/.test(ua)
@@ -11231,7 +11298,7 @@ for(i = 112; i < 136; ++i) {
   output[i] = 'F'+(i-111)
 }
 
-},{}],45:[function(require,module,exports){
+},{}],46:[function(require,module,exports){
 "use strict"
 
 var EventEmitter = require("events").EventEmitter
@@ -11970,11 +12037,11 @@ function createShell(options) {
 
 module.exports = createShell
 
-},{"./lib/hrtime-polyfill.js":36,"./lib/mousewheel-polyfill.js":37,"./lib/raf-polyfill.js":38,"binary-search-bounds":39,"domready":40,"events":14,"invert-hash":41,"iota-array":42,"uniq":43,"util":19,"vkey":44}],46:[function(require,module,exports){
-arguments[4][32][0].apply(exports,arguments)
-},{"dup":32}],47:[function(require,module,exports){
+},{"./lib/hrtime-polyfill.js":37,"./lib/mousewheel-polyfill.js":38,"./lib/raf-polyfill.js":39,"binary-search-bounds":40,"domready":41,"events":15,"invert-hash":42,"iota-array":43,"uniq":44,"util":20,"vkey":45}],47:[function(require,module,exports){
 arguments[4][33][0].apply(exports,arguments)
-},{"dup":33,"weak-map":46}],48:[function(require,module,exports){
+},{"dup":33}],48:[function(require,module,exports){
+arguments[4][34][0].apply(exports,arguments)
+},{"dup":34,"weak-map":47}],49:[function(require,module,exports){
 "use strict";
 'use strict';
 var createUniformWrapper = require('./lib/create-uniforms');
@@ -12118,7 +12185,7 @@ module.exports = createShader;
 
 
 //# sourceURL=/home/andre/code/js/epn/node_modules/gl-shader/index.js
-},{"./lib/create-attributes":49,"./lib/create-uniforms":50,"./lib/reflect":51,"./lib/runtime-reflect":52,"./lib/shader-cache":53}],49:[function(require,module,exports){
+},{"./lib/create-attributes":50,"./lib/create-uniforms":51,"./lib/reflect":52,"./lib/runtime-reflect":53,"./lib/shader-cache":54}],50:[function(require,module,exports){
 "use strict";
 'use strict';
 module.exports = createAttributeWrapper;
@@ -12277,7 +12344,7 @@ function createAttributeWrapper(gl, wrapper, attributes, locations) {
 
 
 //# sourceURL=/home/andre/code/js/epn/node_modules/gl-shader/lib/create-attributes.js
-},{}],50:[function(require,module,exports){
+},{}],51:[function(require,module,exports){
 "use strict";
 'use strict';
 var coallesceUniforms = require('./reflect');
@@ -12452,7 +12519,7 @@ function createUniformWrapper(gl, wrapper, uniforms, locations) {
 
 
 //# sourceURL=/home/andre/code/js/epn/node_modules/gl-shader/lib/create-uniforms.js
-},{"./reflect":51}],51:[function(require,module,exports){
+},{"./reflect":52}],52:[function(require,module,exports){
 "use strict";
 'use strict';
 module.exports = makeReflectTypes;
@@ -12507,7 +12574,7 @@ function makeReflectTypes(uniforms, useIndex) {
 
 
 //# sourceURL=/home/andre/code/js/epn/node_modules/gl-shader/lib/reflect.js
-},{}],52:[function(require,module,exports){
+},{}],53:[function(require,module,exports){
 "use strict";
 'use strict';
 exports.uniforms = runtimeUniforms;
@@ -12574,7 +12641,7 @@ function runtimeAttributes(gl, program) {
 
 
 //# sourceURL=/home/andre/code/js/epn/node_modules/gl-shader/lib/runtime-reflect.js
-},{}],53:[function(require,module,exports){
+},{}],54:[function(require,module,exports){
 "use strict";
 'use strict';
 exports.shader = getShaderReference;
@@ -12679,7 +12746,7 @@ function createProgram(gl, vref, fref, attribs, locations) {
 
 
 //# sourceURL=/home/andre/code/js/epn/node_modules/gl-shader/lib/shader-cache.js
-},{"weakmap-shim":56}],54:[function(require,module,exports){
+},{"weakmap-shim":57}],55:[function(require,module,exports){
 var hiddenStore = require('./hidden-store.js');
 
 module.exports = createStore;
@@ -12700,7 +12767,7 @@ function createStore() {
     };
 }
 
-},{"./hidden-store.js":55}],55:[function(require,module,exports){
+},{"./hidden-store.js":56}],56:[function(require,module,exports){
 module.exports = hiddenStore;
 
 function hiddenStore(obj, key) {
@@ -12718,7 +12785,7 @@ function hiddenStore(obj, key) {
     return store;
 }
 
-},{}],56:[function(require,module,exports){
+},{}],57:[function(require,module,exports){
 // Original - @Gozola. 
 // https://gist.github.com/Gozala/1269991
 // This is a reimplemented version (with a few bug fixes).
@@ -12748,7 +12815,7 @@ function weakMap() {
     }
 }
 
-},{"./create-store.js":54}],57:[function(require,module,exports){
+},{"./create-store.js":55}],58:[function(require,module,exports){
 "use strict";
 "use strict";
 function doBind(gl, elements, attributes) {
@@ -12805,7 +12872,7 @@ module.exports = doBind;
 
 
 //# sourceURL=/home/andre/code/js/epn/node_modules/gl-vao/lib/do-bind.js
-},{}],58:[function(require,module,exports){
+},{}],59:[function(require,module,exports){
 "use strict";
 "use strict";
 var bindAttribs = require("./do-bind.js");
@@ -12841,7 +12908,7 @@ module.exports = createVAOEmulated;
 
 
 //# sourceURL=/home/andre/code/js/epn/node_modules/gl-vao/lib/vao-emulated.js
-},{"./do-bind.js":57}],59:[function(require,module,exports){
+},{"./do-bind.js":58}],60:[function(require,module,exports){
 "use strict";
 "use strict";
 var bindAttribs = require("./do-bind.js");
@@ -12922,11 +12989,11 @@ module.exports = createVAONative;
 
 
 //# sourceURL=/home/andre/code/js/epn/node_modules/gl-vao/lib/vao-native.js
-},{"./do-bind.js":57}],60:[function(require,module,exports){
-arguments[4][32][0].apply(exports,arguments)
-},{"dup":32}],61:[function(require,module,exports){
+},{"./do-bind.js":58}],61:[function(require,module,exports){
 arguments[4][33][0].apply(exports,arguments)
-},{"dup":33,"weak-map":60}],62:[function(require,module,exports){
+},{"dup":33}],62:[function(require,module,exports){
+arguments[4][34][0].apply(exports,arguments)
+},{"dup":34,"weak-map":61}],63:[function(require,module,exports){
 "use strict";
 "use strict";
 var webglew = require("webglew");
@@ -12947,7 +13014,7 @@ module.exports = createVAO;
 
 
 //# sourceURL=/home/andre/code/js/epn/node_modules/gl-vao/vao.js
-},{"./lib/vao-emulated.js":58,"./lib/vao-native.js":59,"webglew":61}],63:[function(require,module,exports){
+},{"./lib/vao-emulated.js":59,"./lib/vao-native.js":60,"webglew":62}],64:[function(require,module,exports){
 "use strict";
 'use strict';
 function mouseButtons(ev) {
@@ -13006,7 +13073,7 @@ exports.y = mouseRelativeY;
 
 
 //# sourceURL=/home/andre/code/js/epn/node_modules/mouse-event/mouse.js
-},{}],64:[function(require,module,exports){
+},{}],65:[function(require,module,exports){
 "use strict";
 module.exports = function pointInTriangle(point, triangle) {
   var cx = point[0],
@@ -13034,7 +13101,7 @@ module.exports = function pointInTriangle(point, triangle) {
 
 
 //# sourceURL=/home/andre/code/js/epn/node_modules/point-in-triangle/index.js
-},{}],65:[function(require,module,exports){
+},{}],66:[function(require,module,exports){
 "use strict"
 
 module.exports = fastTwoSum
@@ -13052,7 +13119,7 @@ function fastTwoSum(a, b, result) {
 	}
 	return [ar+br, x]
 }
-},{}],66:[function(require,module,exports){
+},{}],67:[function(require,module,exports){
 "use strict"
 
 var twoProduct = require("two-product")
@@ -13103,7 +13170,7 @@ function scaleLinearExpansion(e, scale) {
   g.length = count
   return g
 }
-},{"two-product":69,"two-sum":65}],67:[function(require,module,exports){
+},{"two-product":70,"two-sum":66}],68:[function(require,module,exports){
 "use strict"
 
 module.exports = robustSubtract
@@ -13260,7 +13327,7 @@ function robustSubtract(e, f) {
   g.length = count
   return g
 }
-},{}],68:[function(require,module,exports){
+},{}],69:[function(require,module,exports){
 "use strict"
 
 module.exports = linearExpansionSum
@@ -13417,7 +13484,7 @@ function linearExpansionSum(e, f) {
   g.length = count
   return g
 }
-},{}],69:[function(require,module,exports){
+},{}],70:[function(require,module,exports){
 "use strict"
 
 module.exports = twoProduct
@@ -13451,7 +13518,7 @@ function twoProduct(a, b, result) {
 
   return [ y, x ]
 }
-},{}],70:[function(require,module,exports){
+},{}],71:[function(require,module,exports){
 "use strict"
 
 var twoProduct = require("two-product")
@@ -13642,7 +13709,7 @@ function generateOrientationProc() {
 }
 
 generateOrientationProc()
-},{"robust-scale":66,"robust-subtract":67,"robust-sum":68,"two-product":69}],71:[function(require,module,exports){
+},{"robust-scale":67,"robust-subtract":68,"robust-sum":69,"two-product":70}],72:[function(require,module,exports){
 "use strict";
 "use strict";
 module.exports = segmentsIntersect;
@@ -13682,4 +13749,4 @@ function segmentsIntersect(a0, a1, b0, b1) {
 
 
 //# sourceURL=/home/andre/code/js/epn/node_modules/robust-segment-intersect/segseg.js
-},{"robust-orientation":70}]},{},[20,1]);
+},{"robust-orientation":71}]},{},[21,1]);
