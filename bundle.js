@@ -8,56 +8,85 @@ var createShader = require('gl-shader');
 var mouseEvent = require('mouse-event');
 var $__3 = require('gl-matrix'),
     mat4 = $__3.mat4,
-    vec3 = $__3.vec3;
-var shell = require('gl-now')();
+    vec3 = $__3.vec3,
+    vec4 = $__3.vec4;
+var shell = require('gl-now')({preventDefaults: false});
 
-var vs_src = Buffer("dW5pZm9ybSB2ZWMyIHVfcmVzb2x1dGlvbjsKdW5pZm9ybSBtYXQ0IHVfY2FtZXJhOwp1bmlmb3JtIG1hdDQgdV9wZXJzcGVjdGl2ZTsKCmF0dHJpYnV0ZSB2ZWM0IHBvc2l0aW9uOwphdHRyaWJ1dGUgdmVjNCBjb2xvcjsKdmFyeWluZyB2ZWM0IHZfY29sb3I7CgpmbG9hdCByYXRpbyA9IHVfcmVzb2x1dGlvbi55IC8gdV9yZXNvbHV0aW9uLng7Cgp2b2lkIG1haW4oKSB7CiAgZ2xfUG9zaXRpb24gPSB1X3BlcnNwZWN0aXZlICogdV9jYW1lcmEgKiBwb3NpdGlvbjsKICB2X2NvbG9yID0gY29sb3I7Cn0K","base64").toString('utf-8');
+var vs_src = Buffer("dW5pZm9ybSB2ZWMyIHVfcmVzb2x1dGlvbjsKdW5pZm9ybSBtYXQ0IHVfY2FtZXJhOwp1bmlmb3JtIG1hdDQgdV9wZXJzcGVjdGl2ZTsKdW5pZm9ybSBtYXQ0IHVfcG9zaXRpb247CgphdHRyaWJ1dGUgdmVjNCBwb3NpdGlvbjsKYXR0cmlidXRlIHZlYzQgY29sb3I7CnZhcnlpbmcgdmVjNCB2X2NvbG9yOwoKZmxvYXQgcmF0aW8gPSB1X3Jlc29sdXRpb24ueSAvIHVfcmVzb2x1dGlvbi54OwoKdm9pZCBtYWluKCkgewogIGdsX1Bvc2l0aW9uID0gdV9wZXJzcGVjdGl2ZSAqIHVfY2FtZXJhICogdV9wb3NpdGlvbiAqIHBvc2l0aW9uOwogIHZfY29sb3IgPSBjb2xvcjsKfQo=","base64").toString('utf-8');
 var fs_src = Buffer("cHJlY2lzaW9uIGhpZ2hwIGZsb2F0OwoKdmFyeWluZyB2ZWM0IHZfY29sb3I7Cgp2b2lkIG1haW4oKSB7CiAgZ2xfRnJhZ0NvbG9yID0gdl9jb2xvcjsKfQo=","base64").toString('utf-8');
 var Lines = ($__lib_47_lines__ = require("./lib/lines"), $__lib_47_lines__ && $__lib_47_lines__.__esModule && $__lib_47_lines__ || {default: $__lib_47_lines__}).default;
 var TriangleEnvironment = ($__lib_47_environment__ = require("./lib/environment"), $__lib_47_environment__ && $__lib_47_environment__.__esModule && $__lib_47_environment__ || {default: $__lib_47_environment__}).default;
 var Planner2D = ($__lib_47_planner__ = require("./lib/planner"), $__lib_47_planner__ && $__lib_47_planner__.__esModule && $__lib_47_planner__ || {default: $__lib_47_planner__}).default;
 var shader,
-    resolution,
-    camera;
+    resolution;
+var xAxis = Math.PI / 2;
+var zAxis = 0;
+var camera = mat4.create();
+var cameraDist = mat4.create();
+var rotz = mat4.create();
+rotz = mat4.rotateZ(rotz, rotz, Math.PI * .005);
 var mouse,
     mousex,
     mousey;
+var orthographic = false;
 var perspective = mat4.create();
+var ident = mat4.create();
 var environment,
     planner;
 var scene = [];
+var mmb = false;
 shell.on('gl-init', (function() {
   window.gl = shell.gl;
   setResolution();
   shader = createShader(shell.gl, vs_src, fs_src);
-  camera = mat4.lookAt(mat4.create(), vec3.fromValues(0, 0, 1), vec3.fromValues(0, 0, 0), vec3.fromValues(0, 1, 1));
+  mat4.lookAt(cameraDist, vec3.fromValues(0, -1, 0), vec3.fromValues(0, 0, 0), vec3.fromValues(0, -1, 1));
+  calculateCamera();
   shader.attributes.position.location = 0;
   shader.attributes.color.location = 1;
   environment = new TriangleEnvironment(shell.gl, 50);
-  scene.push(environment.mesh);
+  environment.position = mat4.translate(mat4.create(), ident, vec3.fromValues(-.5, -.5, 0));
+  scene.push(environment);
   planner = new Planner2D(gl, environment.collide.bind(environment), [0.08, 0.08], [.75, .75], .002);
+  planner.position = mat4.translate(mat4.create(), ident, vec3.fromValues(-.5, -.5, 0));
   scene.push(planner);
-  shell.canvas.addEventListener('click', (function(e) {
-    var b = mouseEvent.buttons(e);
-    if (b & 1)
-      running = !running;
-    if (b & 4) {
-      console.log(planner.pathSet.paths);
-      planner.iterate();
-    }
-  }));
   scene.push(new Lines(shell.gl, [0, 0, 0, 1, .02, .02, 0, 1], [0, 0, 1, 1]));
+  var event = (function(state) {
+    return (function(e) {
+      var b = mouseEvent.buttons(e);
+      if (b & 4) {
+        mmb = state;
+      }
+    });
+  });
+  shell.canvas.addEventListener('mouseup', event(false));
+  shell.canvas.addEventListener('mousedown', event(true));
   setCursor(0, 0);
 }));
-function linesFromPath(gl, nodes, color) {
-  var arr = [];
-  nodes.forEach((function(n) {
-    return arr.push(n[0], n[1], 0, 1);
-  }));
-  return new Lines(gl, arr, color);
-}
 var n = 0;
 var running = false;
+shell.on('tick', (function() {
+  if (shell.press('space')) {
+    running = !running;
+  }
+  if (shell.press('P')) {
+    orthographic = !orthographic;
+    setResolution();
+  }
+  if (shell.press('S')) {
+    running = false;
+    planner.iterate(1);
+  }
+  var x = (shell.mouseX - shell.prevMouseX) * .02;
+  var y = (shell.mouseY - shell.prevMouseY) * .02;
+  if (mmb) {
+    if (x || y) {
+      zAxis += x;
+      xAxis = Math.min(Math.max(xAxis + y, -Math.PI / 2), Math.PI / 2);
+      calculateCamera();
+    }
+  }
+  mat4.identity(rotz);
+}));
 shell.on('gl-render', (function(t) {
   if (running) {
     n += t;
@@ -71,16 +100,26 @@ shell.on('gl-render', (function(t) {
   shader.uniforms.u_camera = camera;
   shader.uniforms.u_perspective = perspective;
   scene.forEach((function(ob) {
-    return ob.draw();
+    shader.uniforms.u_position = ob.position || ident;
+    ob.draw();
   }));
 }));
 shell.on('gl-resize', setResolution);
+function calculateCamera() {
+  mat4.copy(camera, cameraDist);
+  mat4.rotateX(camera, camera, xAxis);
+  mat4.rotateZ(camera, camera, zAxis);
+}
 function setResolution() {
   resolution = [shell.width, shell.height];
   var ratio = shell.width / shell.height;
   var width = ratio;
-  var left = 0;
-  mat4.ortho(perspective, left, left + width, 0, 1, 0, 10);
+  var left = -width / 2;
+  if (orthographic) {
+    mat4.ortho(perspective, left, left + width, -.5, .5, 0, 10);
+  } else {
+    mat4.perspective(perspective, Math.PI / 4, ratio, .1, 10);
+  }
 }
 function setCursor(x, y) {
   mousex = x / shell.height;
@@ -136,7 +175,8 @@ var TriangleEnvironment = function TriangleEnvironment(gl, count) {
   }
   this.mesh = new Mesh(gl, this.vertices, black);
 };
-($traceurRuntime.createClass)(TriangleEnvironment, {collide: function(point) {
+($traceurRuntime.createClass)(TriangleEnvironment, {
+  collide: function(point) {
     var count = this.vertices.length / 12;
     var i;
     var t;
@@ -146,7 +186,11 @@ var TriangleEnvironment = function TriangleEnvironment(gl, count) {
         return true;
     }
     return false;
-  }}, {});
+  },
+  draw: function() {
+    this.mesh.draw();
+  }
+}, {});
 var $__default = TriangleEnvironment;
 
 
@@ -342,7 +386,6 @@ function mutate(pathSet) {
   }
   if (i === operators.length)
     throw new Error('no valid operators');
-  console.log(t++, op.name);
   newPaths.push(op(validPaths));
   return new PathSet(newPaths, pathSet.fitnessFn);
 }
@@ -379,10 +422,12 @@ function linesFromPath(gl, nodes, color) {
   return new Lines(gl, arr, color);
 }
 function colorByRank(p, i, arr) {
-  var score = 1 - i / arr.length;
-  var color = [1 - score, score, 0.2, .8];
-  if (i === 0)
+  var color;
+  if (i === 0) {
     color = [0, 0, .7, .9];
+  } else {
+    color = [0.1, 0.1, 0.1, .9];
+  }
   return color;
 }
 var $__default = PathSet;
@@ -539,8 +584,9 @@ function linesFromPath(gl, nodes, color) {
 function fitness(p) {
   var score = 0;
   if (p.collisions > 0) {
-    score += 50000;
-    score += p.collisions * DIST;
+    score += 100;
+    score += p.maxRoughness * .05 + p.distance * 6;
+    score += p.collisions * DIST * 20;
   } else {
     score += p.maxRoughness * .25 + p.distance * 8;
   }
