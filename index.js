@@ -1,6 +1,6 @@
 const createShader = require('gl-shader')
 const mouseEvent = require('mouse-event')
-const { mat4, vec3, vec4 } = require('gl-matrix')
+const { mat4, vec3 } = require('gl-matrix')
 let shell = require('gl-now')()
 
 const fs = require('fs')
@@ -36,7 +36,7 @@ shell.on('gl-init', () => {
   scene.push(environment.mesh)
 
   planner = new Planner2D(gl, environment.collide.bind(environment),
-                          [0.08, 0.08], [.25, .25], .002)
+                          [0.08, 0.08], [.75, .75], .002)
   scene.push(planner)
 
   //shell.canvas.addEventListener('mousemove', e => {
@@ -44,8 +44,14 @@ shell.on('gl-init', () => {
   //})
 
   shell.canvas.addEventListener('click', e => {
-    planner.iterate()
+    let b = mouseEvent.buttons(e)
+    if (b & 1) running = !running
+    if (b & 4) {
+      console.log(planner.pathSet.paths)
+      planner.iterate()
+    }
   })
+  scene.push(new Lines(shell.gl, [0,0,0,1,.02,.02, 0, 1], [0,0,1,1]))
 
   //planner.iterate()
   setCursor(0,0)
@@ -57,7 +63,16 @@ function linesFromPath(gl, nodes, color) {
   return new Lines(gl, arr, color)
 }
 
+let n = 0
+let running = false
 shell.on('gl-render', t => {
+  if (running) {
+    n += t
+    if (n > .25) {
+      n = n % .3
+      planner.iterate(1)
+    }
+  }
   shader.bind()
   shader.uniforms.u_resolution = resolution
   shader.uniforms.u_camera = camera

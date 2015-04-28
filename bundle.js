@@ -8,8 +8,7 @@ var createShader = require('gl-shader');
 var mouseEvent = require('mouse-event');
 var $__3 = require('gl-matrix'),
     mat4 = $__3.mat4,
-    vec3 = $__3.vec3,
-    vec4 = $__3.vec4;
+    vec3 = $__3.vec3;
 var shell = require('gl-now')();
 
 var vs_src = Buffer("dW5pZm9ybSB2ZWMyIHVfcmVzb2x1dGlvbjsKdW5pZm9ybSBtYXQ0IHVfY2FtZXJhOwp1bmlmb3JtIG1hdDQgdV9wZXJzcGVjdGl2ZTsKCmF0dHJpYnV0ZSB2ZWM0IHBvc2l0aW9uOwphdHRyaWJ1dGUgdmVjNCBjb2xvcjsKdmFyeWluZyB2ZWM0IHZfY29sb3I7CgpmbG9hdCByYXRpbyA9IHVfcmVzb2x1dGlvbi55IC8gdV9yZXNvbHV0aW9uLng7Cgp2b2lkIG1haW4oKSB7CiAgZ2xfUG9zaXRpb24gPSB1X3BlcnNwZWN0aXZlICogdV9jYW1lcmEgKiBwb3NpdGlvbjsKICB2X2NvbG9yID0gY29sb3I7Cn0K","base64").toString('utf-8');
@@ -36,11 +35,18 @@ shell.on('gl-init', (function() {
   shader.attributes.color.location = 1;
   environment = new TriangleEnvironment(shell.gl, 50);
   scene.push(environment.mesh);
-  planner = new Planner2D(gl, environment.collide.bind(environment), [0.08, 0.08], [.25, .25], .002);
+  planner = new Planner2D(gl, environment.collide.bind(environment), [0.08, 0.08], [.75, .75], .002);
   scene.push(planner);
   shell.canvas.addEventListener('click', (function(e) {
-    planner.iterate();
+    var b = mouseEvent.buttons(e);
+    if (b & 1)
+      running = !running;
+    if (b & 4) {
+      console.log(planner.pathSet.paths);
+      planner.iterate();
+    }
   }));
+  scene.push(new Lines(shell.gl, [0, 0, 0, 1, .02, .02, 0, 1], [0, 0, 1, 1]));
   setCursor(0, 0);
 }));
 function linesFromPath(gl, nodes, color) {
@@ -50,7 +56,16 @@ function linesFromPath(gl, nodes, color) {
   }));
   return new Lines(gl, arr, color);
 }
+var n = 0;
+var running = false;
 shell.on('gl-render', (function(t) {
+  if (running) {
+    n += t;
+    if (n > .25) {
+      n = n % .3;
+      planner.iterate(1);
+    }
+  }
   shader.bind();
   shader.uniforms.u_resolution = resolution;
   shader.uniforms.u_camera = camera;
@@ -107,7 +122,7 @@ var TriangleEnvironment = function TriangleEnvironment(gl, count) {
     return 0.055 + random() * 0.04;
   });
   var rndAngle = (function() {
-    return PI / 4 + random() * PI / 2;
+    return PI / 3 + random() * PI / 2;
   });
   for (var i = 0; i < count; i++) {
     var p1 = [random() * range + .2, random() * range + .2, 0, 1];
@@ -204,69 +219,158 @@ var $__default = Mesh;
 },{"./vobject":10,"gl-buffer":22,"gl-vao":63}],5:[function(require,module,exports){
 "use strict";
 Object.defineProperties(exports, {
-  mutate: {get: function() {
-      return mutate;
+  default: {get: function() {
+      return $__default;
     }},
   __esModule: {value: true}
 });
-function mutate(path, pathSet) {
-  var operators = [moveBig];
-}
-function moveBig(path, pathSet) {
-  var nodes = path.nodes.map((function(n) {
+var $__path_45_set__,
+    $__path__;
+var PathSet = ($__path_45_set__ = require("./path-set"), $__path_45_set__ && $__path_45_set__.__esModule && $__path_45_set__ || {default: $__path_45_set__}).default;
+var Path = ($__path__ = require("./path"), $__path__ && $__path__.__esModule && $__path__ || {default: $__path__}).default;
+var $__2 = Math,
+    min = $__2.min,
+    max = $__2.max,
+    floor = $__2.floor,
+    random = $__2.random,
+    pow = $__2.pow;
+var smallAmount = (function() {
+  return random() * .2 - .1;
+});
+var clamp = (function(x) {
+  return min(max(x, 0), 1);
+});
+function copyNodes(path) {
+  return path.nodes.map((function(n) {
     return n.slice();
   }));
-  var i = floor(random() * (nodes.length - 2));
-  nodes[i + 1][0] = random();
-  nodes[i + 1][1] = random();
+}
+function selNode(nodes) {
+  return floor(random() * (nodes.length - 2)) + 1;
+}
+function rndVector() {
+  return [random(), random()];
+}
+function rndVectorNear(v) {
+  return [clamp(v[0] + smallAmount()), clamp(v[1] + smallAmount())];
+}
+function selPath(paths) {
+  var i = floor(random() * paths.length);
+  return paths[i];
+}
+function some(fn, count) {
+  var arr = [];
+  for (var i = 0; i < count; i++)
+    arr.push(fn());
+  return arr;
+}
+function moveBig(paths) {
+  var path = selPath(paths);
+  var nodes = copyNodes(path);
+  var i = selNode(nodes);
+  nodes[i] = rndVector();
   return new Path(path.testFn, nodes);
 }
-function moveSmall(path, pathSet) {
-  var nodes = path.nodes.map((function(n) {
-    return n.slice();
-  }));
-  var i = floor(random() * (nodes.length - 2));
-  nodes[i + 1][0] = random();
-  nodes[i + 1][1] = random();
+moveBig.minNodes = 1;
+function moveSmall(paths) {
+  var path = selPath(paths);
+  var nodes = copyNodes(path);
+  var i = selNode(nodes);
+  nodes[i] = rndVectorNear(nodes[i]);
+  return new Path(path.testFn, nodes);
+  function wrap(node) {
+    node[0] = ((node[0] % 1) + 1) % 1;
+    node[1] = ((node[1] % 1) + 1) % 1;
+  }
+}
+moveSmall.minNodes = 1;
+function deleteNode(paths) {
+  var path = selPath(paths);
+  var nodes = copyNodes(path);
+  var i = selNode(nodes);
+  nodes.splice(i, 1);
   return new Path(path.testFn, nodes);
 }
+deleteNode.minNodes = 1;
+function addNode(paths) {
+  var $__3;
+  var path = selPath(paths);
+  var nodes = copyNodes(path);
+  var i = floor(random() * (nodes.length - 1)) + 1;
+  var cnt = floor(random() * random() * 5);
+  ($__3 = nodes).splice.apply($__3, $traceurRuntime.spread([i, 0], some(rndVector, cnt)));
+  return new Path(path.testFn, nodes);
+}
+addNode.minNodes = 0;
+function addNodeNear(paths) {
+  var $__3;
+  var path = selPath(paths);
+  var nodes = copyNodes(path);
+  var i = floor(random() * (nodes.length - 1)) + 1;
+  var cnt = floor(random() * random() * 5);
+  ($__3 = nodes).splice.apply($__3, $traceurRuntime.spread([i, 0], some((function() {
+    return rndVectorNear(nodes[i]);
+  }), cnt)));
+  return new Path(path.testFn, nodes);
+}
+addNodeNear.minNodes = 0;
+function crossover(paths) {
+  var a = copyNodes(selPath(paths));
+  var b = copyNodes(selPath(paths));
+  var nodes = a.slice(0, floor(a.length / 2)).concat(b.slice(floor(b.length / 2)));
+  return new Path(paths[0].testFn, nodes);
+}
+crossover.minNodes = 2;
+var operators = [moveBig, moveSmall, deleteNode, addNode, addNodeNear, crossover];
+var t = 0;
+function mutate(pathSet) {
+  var newPaths = pathSet.paths.slice();
+  var d = floor((1 - pow(random(), 3)) * (newPaths.length - 1)) + 1;
+  newPaths.splice(d, 1);
+  var validPaths;
+  var op;
+  var n = floor(random() * operators.length);
+  var i;
+  for (i = 0; i < operators.length; i += 1, n = (n + 1) % operators.length) {
+    op = operators[n];
+    validPaths = newPaths.filter((function(p) {
+      return (p.nodes.length - 2) >= op.minNodes;
+    }));
+    if (validPaths.length > 0) {
+      break;
+    }
+  }
+  if (i === operators.length)
+    throw new Error('no valid operators');
+  console.log(t++, op.name);
+  newPaths.push(op(validPaths));
+  return new PathSet(newPaths, pathSet.fitnessFn);
+}
+var $__default = mutate;
 
 
 //# sourceURL=/home/andre/code/js/epn/lib/mutate.js
-},{}],6:[function(require,module,exports){
+},{"./path":7,"./path-set":6}],6:[function(require,module,exports){
 "use strict";
 Object.defineProperties(exports, {
-  PathSet: {get: function() {
-      return PathSet;
-    }},
-  colorByRank: {get: function() {
-      return colorByRank;
+  default: {get: function() {
+      return $__default;
     }},
   __esModule: {value: true}
 });
-var $__lines__,
-    $__mutate__;
+var $__lines__;
 var Lines = ($__lines__ = require("./lines"), $__lines__ && $__lines__.__esModule && $__lines__ || {default: $__lines__}).default;
-var mutate = ($__mutate__ = require("./mutate"), $__mutate__ && $__mutate__.__esModule && $__mutate__ || {default: $__mutate__}).default;
 var PathSet = function PathSet(paths, fitnessFn) {
   this.paths = paths.slice().sort((function(a, b) {
     return fitnessFn(a) - fitnessFn(b);
   }));
   this.fitnessFn = fitnessFn;
 };
-var $PathSet = PathSet;
-($traceurRuntime.createClass)(PathSet, {
-  mutation: function() {
-    var newPaths = this.paths.slice(0, -1);
-    newPaths.push(this.pathMutationFn(newPaths[0]));
-    return new $PathSet(newPaths, this.fitnessFn, this.pathMutationFn);
-  },
-  generateVObjects: function(gl, colorFn) {
+($traceurRuntime.createClass)(PathSet, {generateVObjects: function(gl, colorFn) {
     return this.paths.map((function(p, i, arr) {
-      return linesFromPath(gl, p.nodes, colorFn(p, i, arr));
+      return linesFromPath(gl, p.nodes, colorByRank(p, i, arr));
     }));
-  }
-}, {});
+  }}, {});
 function linesFromPath(gl, nodes, color) {
   var arr = [];
   nodes.forEach((function(n) {
@@ -281,11 +385,11 @@ function colorByRank(p, i, arr) {
     color = [0, 0, .7, .9];
   return color;
 }
-;
+var $__default = PathSet;
 
 
 //# sourceURL=/home/andre/code/js/epn/lib/path-set.js
-},{"./lines":3,"./mutate":5}],7:[function(require,module,exports){
+},{"./lines":3}],7:[function(require,module,exports){
 "use strict";
 Object.defineProperties(exports, {
   default: {get: function() {
@@ -326,7 +430,7 @@ var Path = function Path(testFn, nodes) {
 };
 ($traceurRuntime.createClass)(Path, {}, {});
 var $__default = Path;
-var DIST = .02;
+var DIST = .01;
 function smoothness(d1, d2, p1, p2, p3) {
   var d = min(d1, d2);
   var a1 = atan2(p2[1] - p1[1], p2[0] - p1[0]);
@@ -372,19 +476,19 @@ Object.defineProperties(exports, {
 var $__path_45_set__,
     $__path__,
     $__lines__,
-    $__robust_45_segment_45_intersect__;
-var $__0 = ($__path_45_set__ = require("./path-set"), $__path_45_set__ && $__path_45_set__.__esModule && $__path_45_set__ || {default: $__path_45_set__}),
-    PathSet = $__0.PathSet,
-    colorByRank = $__0.colorByRank;
+    $__robust_45_segment_45_intersect__,
+    $__mutate__;
+var PathSet = ($__path_45_set__ = require("./path-set"), $__path_45_set__ && $__path_45_set__.__esModule && $__path_45_set__ || {default: $__path_45_set__}).default;
 var Path = ($__path__ = require("./path"), $__path__ && $__path__.__esModule && $__path__ || {default: $__path__}).default;
 var Lines = ($__lines__ = require("./lines"), $__lines__ && $__lines__.__esModule && $__lines__ || {default: $__lines__}).default;
 var segmentsIntersect = ($__robust_45_segment_45_intersect__ = require("robust-segment-intersect"), $__robust_45_segment_45_intersect__ && $__robust_45_segment_45_intersect__.__esModule && $__robust_45_segment_45_intersect__ || {default: $__robust_45_segment_45_intersect__}).default;
-var $__5 = Math,
-    sin = $__5.sin,
-    cos = $__5.cos,
-    random = $__5.random,
-    floor = $__5.floor,
-    PI = $__5.PI;
+var mutate = ($__mutate__ = require("./mutate"), $__mutate__ && $__mutate__.__esModule && $__mutate__ || {default: $__mutate__}).default;
+var $__6 = Math,
+    sin = $__6.sin,
+    cos = $__6.cos,
+    random = $__6.random,
+    floor = $__6.floor,
+    PI = $__6.PI;
 var Planner2D = function Planner2D(gl, testFn, start, goal, sampleStep) {
   this.testFn = testFn;
   this.gl = gl;
@@ -396,11 +500,11 @@ var Planner2D = function Planner2D(gl, testFn, start, goal, sampleStep) {
   if (testFn(goal))
     throw Error('Goal location collision');
   var paths = [];
-  for (var i = 0; i < 10; i++) {
-    var p = randomPath(4 + floor(random() * 6), start, goal);
+  for (var i = 0; i < 8; i++) {
+    var p = randomPath(4 + floor(random() * 8), start, goal);
     paths.push(new Path(testFn, p));
   }
-  this.pathSet = new PathSet(paths, fitness, mutate);
+  this.pathSet = new PathSet(paths, fitness);
   this.refreshVObjects();
 };
 ($traceurRuntime.createClass)(Planner2D, {
@@ -408,10 +512,13 @@ var Planner2D = function Planner2D(gl, testFn, start, goal, sampleStep) {
     this.vobjects.forEach((function(o) {
       return o.destroy();
     }));
-    this.vobjects = this.pathSet.generateVObjects(this.gl, colorByRank);
+    this.vobjects = this.pathSet.generateVObjects(this.gl);
   },
-  iterate: function() {
-    this.pathSet = this.pathSet.mutation();
+  iterate: function(count) {
+    count = count || 1;
+    for (var i = 0; i < count; i++) {
+      this.pathSet = mutate(this.pathSet);
+    }
     this.refreshVObjects();
   },
   draw: function() {
@@ -428,15 +535,6 @@ function linesFromPath(gl, nodes, color) {
     return arr.push(n[0], n[1], 0, 1);
   }));
   return new Lines(gl, arr, color);
-}
-function mutate(path) {
-  var nodes = path.nodes.map((function(n) {
-    return n.slice();
-  }));
-  var i = floor(random() * (nodes.length - 2));
-  nodes[i + 1][0] = random();
-  nodes[i + 1][1] = random();
-  return new Path(path.testFn, nodes);
 }
 function fitness(p) {
   var score = 0;
@@ -462,93 +560,55 @@ function randomColor() {
 
 
 //# sourceURL=/home/andre/code/js/epn/lib/planner.js
-},{"./lines":3,"./path":7,"./path-set":6,"robust-segment-intersect":72}],9:[function(require,module,exports){
+},{"./lines":3,"./mutate":5,"./path":7,"./path-set":6,"robust-segment-intersect":72}],9:[function(require,module,exports){
 "use strict";
-var $__4 = $traceurRuntime.initGeneratorFunction(sample);
 Object.defineProperties(exports, {
   default: {get: function() {
       return $__default;
     }},
   __esModule: {value: true}
 });
-var $__3 = Math,
-    sin = $__3.sin,
-    cos = $__3.cos,
-    min = $__3.min,
-    max = $__3.max,
-    atan2 = $__3.atan2,
-    sqrt = $__3.sqrt,
-    random = $__3.random,
-    PI = $__3.PI;
+var $__2 = Math,
+    sin = $__2.sin,
+    cos = $__2.cos,
+    min = $__2.min,
+    max = $__2.max,
+    atan2 = $__2.atan2,
+    sqrt = $__2.sqrt,
+    random = $__2.random,
+    PI = $__2.PI;
 var Segment = function Segment(a, b, testFn, sampleDist) {
+  var $__0 = this;
   this[0] = a;
   this[1] = b;
-  this.distance = dist(a, b);
+  this.distance = distance(a, b);
   this.collisions = 0;
-  for (var $__1 = sample(sampleDist, a, b)[$traceurRuntime.toProperty(Symbol.iterator)](),
-      $__2; !($__2 = $__1.next()).done; ) {
-    var p = $__2.value;
-    {
-      if (testFn(p)) {
-        this.sample += 1;
-        this.collisions += 1;
-      }
+  sample(sampleDist, a, b, (function(p) {
+    if (testFn(p)) {
+      $__0.sample += 1;
+      $__0.collisions += 1;
     }
-  }
+  }));
+  window.sample = window.sample || sample;
   this.feasible = this.collisions === 0;
 };
 ($traceurRuntime.createClass)(Segment, {}, {});
 var $__default = Segment;
-function dist(a, b) {
+function distance(a, b) {
   var x = b[0] - a[0];
   var y = b[1] - a[1];
   return sqrt(x * x + y * y);
 }
-function sample(dist, start, end) {
-  var ang,
-      xInc,
-      yInc,
-      xStart,
-      yStart,
-      xEnd,
-      yEnd,
-      x,
-      y;
-  return $traceurRuntime.createGeneratorInstance(function($ctx) {
-    while (true)
-      switch ($ctx.state) {
-        case 0:
-          ang = (atan2(end[1] - start[1], end[0] - start[0]) + PI) % PI;
-          xInc = cos(ang) * dist;
-          yInc = sin(ang) * dist;
-          xStart = min(start[0], end[0]);
-          yStart = min(start[1], end[1]);
-          xEnd = max(start[0], end[0]);
-          yEnd = max(start[1], end[1]);
-          $ctx.state = 9;
-          break;
-        case 9:
-          x = xStart, y = yStart;
-          $ctx.state = 7;
-          break;
-        case 7:
-          $ctx.state = (x <= xEnd && y <= yEnd) ? 1 : -2;
-          break;
-        case 4:
-          x += xInc, y += yInc;
-          $ctx.state = 7;
-          break;
-        case 1:
-          $ctx.state = 2;
-          return [x, y];
-        case 2:
-          $ctx.maybeThrow();
-          $ctx.state = 4;
-          break;
-        default:
-          return $ctx.end();
-      }
-  }, $__4, this);
+function sample(sampleDist, start, end, cb) {
+  var dist = distance(start, end);
+  var steps = dist / sampleDist;
+  var xInc = (end[0] - start[0]) / steps;
+  var yInc = (end[1] - start[1]) / steps;
+  for (var i = 0,
+      x = start[0],
+      y = start[1]; i < steps; x += xInc, y += yInc, i += 1) {
+    cb([x, y]);
+  }
 }
 
 
