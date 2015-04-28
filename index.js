@@ -9,8 +9,11 @@ let fs_src = fs.readFileSync('./fs.glsl').toString('utf-8')
 
 import Lines from './lib/lines'
 import Scene from './lib/scene'
+import Skeleton from './lib/skeleton'
 import TriangleEnvironment from './lib/environment'
+import CircleEnvironment from './lib/circleEnvironment'
 import Planner2D from './lib/planner'
+import collide from './lib/skeletonEnvironmentCollide'
 
 let shader, resolution
 
@@ -24,7 +27,8 @@ let perspective = mat4.create()
 const ident = mat4.create()
 
 let environment, planner
-let scene
+let cSpaceScene
+let cartesianScene
 
 let mmb = false
 
@@ -36,22 +40,43 @@ shell.on('gl-init', () => {
   // position the camera to look down at the X-Y plane
   mat4.lookAt(
     cameraDist,
-    vec3.fromValues(0, -2, 0),
+    vec3.fromValues(0, -1.8, 0),
     vec3.fromValues(0, 0, 0),
-    vec3.fromValues(0, -2, 1)
+    vec3.fromValues(0, -1.8, 1)
   )
   calculateCamera()
-  scene = new Scene(camera, perspective, shader)
+  cSpaceScene = new Scene(camera, perspective, shader)
+  cartesianScene = new Scene(camera, perspective, shader)
 
-  environment = new TriangleEnvironment(shell.gl, 50)
+  environment = new CircleEnvironment(shell.gl, [
+    [.75, .84, .06],
+    [.85, .65, .055],
+  ])
   environment.position = mat4.translate(mat4.create(), ident, vec3.fromValues(-.5, -.5, 0))
-  scene.push(environment)
+  cartesianScene.push(environment)
 
-  planner = new Planner2D(gl, environment.collide.bind(environment),
-                          [0.08, 0.08], [.75, .75], .002)
+  let toUnitSpace = a => ((a + Math.PI)/(Math.PI*2))
+
+  let startAngle = [0, .1]
+  let endAngle = [1.1, -2]
+
+  let skeleton = new Skeleton(shell.gl, startAngle, [.9,.2,.2,1])
+  let goal = new Skeleton(shell.gl, endAngle, [.2,.8,.8,1])
+  cartesianScene.push(skeleton)
+  cartesianScene.push(goal)
+  //environment = new TriangleEnvironment(shell.gl, 0)
+  skeleton.position = mat4.translate(mat4.create(), ident, vec3.fromValues(-.5, -.5, 0))
+  goal.position = mat4.translate(mat4.create(), ident, vec3.fromValues(-.5, -.5, 0))
+  //scene.push(environment)
+
+  planner = new Planner2D(shell.gl,
+                          collide(environment, skeleton),
+                          startAngle.map(toUnitSpace),
+                          endAngle.map(toUnitSpace),
+                          .002)
   planner.position = mat4.translate(mat4.create(), ident, vec3.fromValues(-.5, -.5, 0))
-  scene.push(planner)
-  scene.push(new Lines(shell.gl, [0,0,0,1,.02,.02, 0, 1], [0,0,1,1]))
+  cSpaceScene.push(planner)
+  //scene.push(new Lines(shell.gl, [0,0,0,1,.02,.02, 0, 1], [0,0,1,1]))
 
   let event = (state) => {
     return e => {
@@ -67,9 +92,13 @@ shell.on('gl-init', () => {
 
 let n = 0
 let running = false
+let scene = false
 shell.on('tick', () => {
   if (shell.press('space')) {
     running = !running
+  }
+  if (shell.press('1')) {
+    scene = !scene
   }
   if (shell.press('P')) {
     orthographic = !orthographic
@@ -78,6 +107,9 @@ shell.on('tick', () => {
   if (shell.press('S')) {
     running = false
     planner.iterate(1)
+  }
+  if (shell.press('.')) {
+    console.log(planner.pathSet.paths)
   }
   let x = (shell.mouseX - shell.prevMouseX) * .02
   let y = (shell.mouseY - shell.prevMouseY) * .02
@@ -97,7 +129,12 @@ shell.on('gl-render', t => {
       planner.iterate(1)
     }
   }
-  scene.render()
+  if (scene) {
+    cSpaceScene.render()
+  }
+  else {
+    cartesianScene.render()
+  }
 })
 
 shell.on('gl-resize', setResolution)
@@ -116,13 +153,11 @@ function calculateCamera() {
 function setResolution() {
   resolution = [shell.width, shell.height]
   let ratio = shell.width/shell.height
-  let width = ratio * 2
-  let height = 2
+  let width = ratio * 1.7
+  let height = 1.7
 
-  // used to center the 
-  let left = -width/2
   if (orthographic) {
-    mat4.ortho(perspective, left, left + width,-height/2,height/2,0,10)
+    mat4.ortho(perspective, -width/2, width/2,-height/2,height/2,0,10)
   }
   else {
     mat4.perspective(perspective, Math.PI / 4, ratio, .1, 10)
