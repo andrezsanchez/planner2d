@@ -48,14 +48,13 @@ shell.on('gl-init', () => {
   cSpaceScene = new Scene(camera, perspective, shader)
   cartesianScene = new Scene(camera, perspective, shader)
 
+
   environment = new CircleEnvironment(shell.gl, [
     [.75, .84, .06],
     [.85, .65, .055],
   ])
   environment.position = mat4.translate(mat4.create(), ident, vec3.fromValues(-.5, -.5, 0))
   cartesianScene.push(environment)
-
-  let toUnitSpace = a => ((a + Math.PI)/(Math.PI*2))
 
   let startAngle = [0, .1]
   let endAngle = [1.1, -2]
@@ -64,11 +63,10 @@ shell.on('gl-init', () => {
   let goal = new Skeleton(shell.gl, endAngle, [.2,.8,.8,1])
   cartesianScene.push(skeleton)
   cartesianScene.push(goal)
-  //environment = new TriangleEnvironment(shell.gl, 0)
   skeleton.position = mat4.translate(mat4.create(), ident, vec3.fromValues(-.5, -.5, 0))
   goal.position = mat4.translate(mat4.create(), ident, vec3.fromValues(-.5, -.5, 0))
-  //scene.push(environment)
 
+  let toUnitSpace = a => ((a + Math.PI)/(Math.PI*2))
   planner = new Planner2D(shell.gl,
                           collide(environment, skeleton),
                           startAngle.map(toUnitSpace),
@@ -76,10 +74,9 @@ shell.on('gl-init', () => {
                           .002)
   planner.position = mat4.translate(mat4.create(), ident, vec3.fromValues(-.5, -.5, 0))
   cSpaceScene.push(planner)
-  //scene.push(new Lines(shell.gl, [0,0,0,1,.02,.02, 0, 1], [0,0,1,1]))
 
   let event = (state) => {
-    return e => {
+    return (e) => {
       let b = mouseEvent.buttons(e)
       if (b & 4) {
         mmb = state
@@ -93,7 +90,24 @@ shell.on('gl-init', () => {
 let n = 0
 let running = false
 let scene = false
+
+let animation = false
+let aWhere
+let aWhichNode
+let ax, ay
 shell.on('tick', () => {
+  if (shell.press('A')) {
+    if (animation) {
+      animation = false
+    }
+    else {
+      animation = true
+      aWhere = 0
+      aWhichNode = 0
+    }
+  }
+  if (animation) {
+  }
   if (shell.press('space')) {
     running = !running
   }
@@ -151,7 +165,6 @@ function calculateCamera() {
  * is changed.
  */
 function setResolution() {
-  resolution = [shell.width, shell.height]
   let ratio = shell.width/shell.height
   let width = ratio * 1.7
   let height = 1.7

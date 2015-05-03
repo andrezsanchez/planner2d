@@ -50,9 +50,6 @@ shell.on('gl-init', (function() {
   environment = new CircleEnvironment(shell.gl, [[.75, .84, .06], [.85, .65, .055]]);
   environment.position = mat4.translate(mat4.create(), ident, vec3.fromValues(-.5, -.5, 0));
   cartesianScene.push(environment);
-  var toUnitSpace = (function(a) {
-    return ((a + Math.PI) / (Math.PI * 2));
-  });
   var startAngle = [0, .1];
   var endAngle = [1.1, -2];
   var skeleton = new Skeleton(shell.gl, startAngle, [.9, .2, .2, 1]);
@@ -61,6 +58,9 @@ shell.on('gl-init', (function() {
   cartesianScene.push(goal);
   skeleton.position = mat4.translate(mat4.create(), ident, vec3.fromValues(-.5, -.5, 0));
   goal.position = mat4.translate(mat4.create(), ident, vec3.fromValues(-.5, -.5, 0));
+  var toUnitSpace = (function(a) {
+    return ((a + Math.PI) / (Math.PI * 2));
+  });
   planner = new Planner2D(shell.gl, collide(environment, skeleton), startAngle.map(toUnitSpace), endAngle.map(toUnitSpace), .002);
   planner.position = mat4.translate(mat4.create(), ident, vec3.fromValues(-.5, -.5, 0));
   cSpaceScene.push(planner);
@@ -78,6 +78,11 @@ shell.on('gl-init', (function() {
 var n = 0;
 var running = false;
 var scene = false;
+var animation = false;
+var aWhere;
+var aWhichNode;
+var ax,
+    ay;
 shell.on('tick', (function() {
   if (shell.press('space')) {
     running = !running;
@@ -127,7 +132,6 @@ function calculateCamera() {
   mat4.rotateZ(camera, camera, zAxis);
 }
 function setResolution() {
-  resolution = [shell.width, shell.height];
   var ratio = shell.width / shell.height;
   var width = ratio * 1.7;
   var height = 1.7;
@@ -663,7 +667,6 @@ function fitness(p) {
   var score = 0;
   if (p.collisions > 0) {
     score += 100;
-    score += p.maxRoughness * .05 + p.distance * 6;
     score += p.collisions * DIST * 20;
   } else {
     score += p.maxRoughness * .25 + p.distance * 8;
@@ -851,14 +854,14 @@ Object.defineProperties(exports, {
 var $__line_45_circle_45_collision__;
 var lineCircleCollide = ($__line_45_circle_45_collision__ = require("line-circle-collision"), $__line_45_circle_45_collision__ && $__line_45_circle_45_collision__.__esModule && $__line_45_circle_45_collision__ || {default: $__line_45_circle_45_collision__}).default;
 function collide(circleEnvironment, skeleton) {
-  return function(jointAngles) {
+  return function(coordinates) {
     var circles = circleEnvironment.circles;
-    var nodes = skeleton.nodesFromJointAngles(jointAngles.map((function(a) {
+    var skeletonNodes = skeleton.nodesFromJointAngles(coordinates.map((function(a) {
       return (a * (Math.PI * 2) - Math.PI);
     })));
-    for (var i = 0; i < nodes.length - 1; i++) {
+    for (var i = 0; i < skeletonNodes.length - 1; i++) {
       for (var j = 0; j < circles.length; j++) {
-        if (lineCircleCollide(nodes[i], nodes[i + 1], circles[j], circles[j][2])) {
+        if (lineCircleCollide(skeletonNodes[i], skeletonNodes[i + 1], circles[j], circles[j][2])) {
           return true;
         }
       }
