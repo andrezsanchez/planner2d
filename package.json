@@ -16,9 +16,12 @@
     "gl-vao": "^1.2.0",
     "line-circle-collision": "^1.1.3",
     "mouse-event": "^1.0.4",
+    "ndarray": "^1.0.16",
+    "ndgemm": "0.0.0",
     "point-in-triangle": "^1.0.1",
     "react": "^0.13.1",
-    "robust-segment-intersect": "^1.0.1"
+    "robust-segment-intersect": "^1.0.1",
+    "zeros": "^1.0.0"
   },
   "devDependencies": {
     "brfs": "^1.4.0",

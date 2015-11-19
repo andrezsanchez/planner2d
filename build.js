@@ -1,12 +1,11 @@
-#!/usr/bin/env node
 'use strict';
 
 var argv = require('minimist')(process.argv.slice(2))
 
-var browserify = require('browserify')
-var es6ify = require('es6ify')
-var brfs = require('brfs')
-var fs = require('fs')
+const browserify = require('browserify')
+const es6ify = require('es6ify')
+const brfs = require('brfs')
+const fs = require('fs')
 
 var output = './bundle.js'
 var w
@@ -14,8 +13,8 @@ var debug = false
 
 var i = 0
 if (argv.w) {
-  var watchify = require('watchify')
-  var b = browserify({cache: {}, packageCache: {}, debug: debug})
+  let watchify = require('watchify')
+  let b = browserify({cache: {}, packageCache: {}, debug: debug})
 
   applyTransforms(b)
   

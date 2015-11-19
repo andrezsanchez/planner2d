@@ -1,6 +1,6 @@
 const createShader = require('gl-shader')
 const mouseEvent = require('mouse-event')
-const { mat4, vec3, vec4 } = require('gl-matrix')
+const { mat4, vec3 } = require('gl-matrix')
 let shell = require('gl-now')({preventDefaults: false})
 
 const fs = require('fs')
@@ -14,6 +14,7 @@ import TriangleEnvironment from './lib/environment'
 import CircleEnvironment from './lib/circleEnvironment'
 import Planner2D from './lib/planner'
 import collide from './lib/skeletonEnvironmentCollide'
+import thetaLink from './lib/dh/thetaLink'
 
 let shader, resolution
 
@@ -33,7 +34,6 @@ let cartesianScene
 let mmb = false
 
 shell.on('gl-init', () => {
-  window.gl = shell.gl
   setResolution()
   shader = createShader(shell.gl, vs_src, fs_src)
 
@@ -59,19 +59,26 @@ shell.on('gl-init', () => {
   let startAngle = [0, .1]
   let endAngle = [1.1, -2]
 
-  let skeleton = new Skeleton(shell.gl, startAngle, [.9,.2,.2,1])
-  let goal = new Skeleton(shell.gl, endAngle, [.2,.8,.8,1])
+  let joints = [
+    thetaLink(0, 1, 0),
+    thetaLink(0, 1, 0),
+  ]
+
+  let skeleton = new Skeleton(shell.gl, joints, [.9,.2,.2,1])
+  let goal = new Skeleton(shell.gl, joints, [.2,.8,.8,1])
   cartesianScene.push(skeleton)
   cartesianScene.push(goal)
   skeleton.position = mat4.translate(mat4.create(), ident, vec3.fromValues(-.5, -.5, 0))
   goal.position = mat4.translate(mat4.create(), ident, vec3.fromValues(-.5, -.5, 0))
 
   let toUnitSpace = a => ((a + Math.PI)/(Math.PI*2))
-  planner = new Planner2D(shell.gl,
-                          collide(environment, skeleton),
-                          startAngle.map(toUnitSpace),
-                          endAngle.map(toUnitSpace),
-                          .002)
+  planner = new Planner2D(
+    shell.gl,
+    collide(environment, skeleton),
+    startAngle.map(toUnitSpace),
+    endAngle.map(toUnitSpace),
+    .002
+  )
   planner.position = mat4.translate(mat4.create(), ident, vec3.fromValues(-.5, -.5, 0))
   cSpaceScene.push(planner)
 
@@ -108,12 +115,9 @@ shell.on('tick', () => {
   }
   if (animation) {
   }
-  if (shell.press('space')) {
-    running = !running
-  }
-  if (shell.press('1')) {
-    scene = !scene
-  }
+  if (shell.press('space')) running = !running
+  if (shell.press('1')) scene = !scene 
+
   if (shell.press('P')) {
     orthographic = !orthographic
     setResolution()

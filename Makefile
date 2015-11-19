@@ -7,9 +7,9 @@ source=index.js
 dest=bundle.js
 
 main:
-	node ./build.js > $(dest)
+	iojs ./build.js > $(dest)
 watch:
-	node ./build.js -w
+	iojs ./build.js -w
 serve:
 	http-server .
 
